@@ -1357,6 +1357,56 @@ if (!phone) {
       return miniJson({ club: club || {} });
     }
 
+    // Обновление информации о клубе — только администратор
+    if (path === "/api/admin/club" && method === "PUT") {
+      if (!role) return miniJson({ error: "Нет доступа" }, 403);
+
+      const body = await readBody();
+      if (!body || typeof body !== "object") {
+        return miniJson({ error: "Некорректные данные" }, 400);
+      }
+
+      const fields = ["contacts", "telegram", "vk", "address", "rules", "age_restrictions"];
+      const limits = {
+        contacts: 500, telegram: 200, vk: 500,
+        address: 1000, rules: 5000, age_restrictions: 1000
+      };
+      const values = {};
+      for (const field of fields) {
+        const value = String(body[field] ?? "").trim();
+        if (value.length > limits[field]) {
+          return miniJson({ error: "Слишком длинное значение: " + field }, 400);
+        }
+        values[field] = value;
+      }
+
+      const existing = await env.DB.prepare(
+        "SELECT id FROM club_info ORDER BY id LIMIT 1"
+      ).first();
+
+      if (existing?.id != null) {
+        await env.DB.prepare(`
+          UPDATE club_info
+          SET contacts = ?, telegram = ?, vk = ?, address = ?, rules = ?, age_restrictions = ?
+          WHERE id = ?
+        `).bind(
+          values.contacts, values.telegram, values.vk,
+          values.address, values.rules, values.age_restrictions, existing.id
+        ).run();
+      } else {
+        await env.DB.prepare(`
+          INSERT INTO club_info
+            (contacts, telegram, vk, address, rules, age_restrictions)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `).bind(
+          values.contacts, values.telegram, values.vk,
+          values.address, values.rules, values.age_restrictions
+        ).run();
+      }
+
+      return miniJson({ success: true });
+    }
+
     // Заявка на заказную игру
     if (path === "/api/order-requests" && method === "POST") {
       const body = await readBody();
