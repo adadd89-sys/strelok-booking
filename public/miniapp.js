@@ -327,6 +327,34 @@ function checkTelegramAuth() {
     }
   }
 
+  
+  // Выбор видов игры в зависимости от площадки
+  function updateOrderTypes() {
+    const venue = $("orderVenue")?.value;
+    const typeSelect = $("orderType");
+
+    if (!typeSelect) return;
+
+    const types = {
+      "Бункер": ["страйкбол", "лазертаг"],
+      "Адмирал": ["страйкбол", "ребол", "лазертаг"],
+      "Глубокое озеро": ["страйкбол", "пейнтбол", "лазертаг"]
+    };
+
+    typeSelect.innerHTML = '<option value="">Выбери вид игры</option>';
+
+    (types[venue] || []).forEach(type => {
+      const option = document.createElement("option");
+      option.value = type;
+      option.textContent = type.charAt(0).toUpperCase() + type.slice(1);
+      typeSelect.appendChild(option);
+    });
+
+    typeSelect.disabled = !types[venue];
+  }
+
+  $("orderVenue")?.addEventListener("change", updateOrderTypes);
+
   // ЗАКАЗ ИГРЫ
 
   async function submitOrderRequest() {
