@@ -1378,7 +1378,7 @@ if(path.startsWith("/api/admin/venues/photo/")&&method==="DELETE"){if(!(await is
 
     // Обновление информации о клубе — только администратор
     if (path === "/api/admin/club" && method === "PUT") {
-      if (!role) return miniJson({ error: "Нет доступа" }, 403);
+      if (!(await isAdmin(env, uid))) return miniJson({ error: "Нет доступа" }, 403);
 
       const body = await readBody();
       if (!body || typeof body !== "object") {
