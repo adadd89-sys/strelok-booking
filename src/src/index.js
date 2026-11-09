@@ -1174,7 +1174,19 @@ async function ensureMiniAppTables(env) {
   `).run();
 }
 
-async function ensureVenueTables(env){await env.DB.prepare("CREATE TABLE IF NOT EXISTS venues(slug TEXT PRIMARY KEY,name TEXT NOT NULL,games TEXT NOT NULL,description TEXT DEFAULT '',address TEXT DEFAULT '',sort_order INTEGER DEFAULT 0)").run();await env.DB.prepare("CREATE TABLE IF NOT EXISTS venue_photos(id INTEGER PRIMARY KEY AUTOINCREMENT,venue_slug TEXT NOT NULL,file_id TEXT NOT NULL,created_at TEXT DEFAULT CURRENT_TIMESTAMP)").run();for(const x of [["bunker","Бункер","страйкбол, лазертаг",1],["admiral","Адмирал","страйкбол, ребол, лазертаг",2],["glubokoe-ozero","Глубокое озеро","страйкбол, пейнтбол, лазертаг",3]])await env.DB.prepare("INSERT OR IGNORE INTO venues(slug,name,games,sort_order) VALUES(?,?,?,?)").bind(...x).run();}
+async function ensureVenueTables(env){
+ await env.DB.prepare("CREATE TABLE IF NOT EXISTS venues(slug TEXT PRIMARY KEY,name TEXT NOT NULL,games TEXT NOT NULL,description TEXT DEFAULT '',address TEXT DEFAULT '',sort_order INTEGER DEFAULT 0)").run();
+ await env.DB.prepare("CREATE TABLE IF NOT EXISTS venue_photos(id INTEGER PRIMARY KEY AUTOINCREMENT,venue_slug TEXT NOT NULL,file_id TEXT NOT NULL,created_at TEXT DEFAULT CURRENT_TIMESTAMP)").run();
+ const venues=[
+  ["bunker","Бункер","страйкбол, лазертаг",1,"ул. Академика Арбузова, 5, Казань (этаж цокольный) — Яндекс Карты: https://yandex.ru/profile/1397600367?lang=ru"],
+  ["admiral","Адмирал","страйкбол, ребол, лазертаг",2,"улица 1 Мая, дом 5, 6 этаж"],
+  ["glubokoe-ozero","Глубокое озеро","страйкбол, пейнтбол, лазертаг",3,"Территория Озеро Глубокое, Кировский район, Казань, Республика Татарстан (Татарстан)"]
+ ];
+ for(const x of venues){
+  await env.DB.prepare("INSERT OR IGNORE INTO venues(slug,name,games,sort_order) VALUES(?,?,?,?)").bind(x[0],x[1],x[2],x[3]).run();
+  await env.DB.prepare("UPDATE venues SET address=? WHERE slug=? AND (address IS NULL OR address='')").bind(x[4],x[0]).run();
+ }
+}
 async function miniAppApi(request, env, url) {
   try {
     const user = await verifyTelegramInitData(request, env);
