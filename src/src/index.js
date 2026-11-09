@@ -45,6 +45,13 @@ const adminPanelMenu = {
   ]
 };
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
 async function state(env, id, value, data = {}) {
   await env.DB.prepare(
     `INSERT INTO user_states (telegram_id,state,data)
@@ -70,10 +77,21 @@ async function clearState(env, id) {
 
 async function isAdmin(env, id) {
   if (String(id) === String(env.OWNER_ID)) return "owner";
+
   const row = await env.DB.prepare(
     "SELECT role FROM admins WHERE telegram_id=?"
   ).bind(String(id)).first();
+
   return row?.role || null;
+}
+
+function adminBackKeyboard(gameId) {
+  return {
+    inline_keyboard: [
+      [{ text: "⬅️ К игре", callback_data: `admin:players:${gameId}` }],
+      [{ text: "📋 К списку игр", callback_data: "admin:games" }]
+    ]
+  };
 }
 
 async function showAdminPanel(env, chatId) {
@@ -88,12 +106,14 @@ async function showAdminPanel(env, chatId) {
 async function showAdminGames(env, chatId) {
   const rows = await env.DB.prepare(
     `SELECT g.*,
-       COALESCE(SUM(CASE WHEN b.status='active' THEN b.participants ELSE 0 END),0) AS booked
+       COALESCE(SUM(
+         CASE WHEN b.status='active' THEN b.participants ELSE 0 END
+       ),0) AS booked
      FROM games g
      LEFT JOIN bookings b ON b.game_id=g.id
      GROUP BY g.id
      ORDER BY g.game_date DESC,g.game_time DESC
-     LIMIT 20`
+     LIMIT 30`
   ).all();
 
   if (!rows.results.length) {
@@ -114,7 +134,7 @@ async function showAdminGames(env, chatId) {
     }[game.status] || "❔";
 
     return [{
-      text: `${status} ${date} | ${String(game.title || "Игра").slice(0, 35)} | 👥 ${game.booked}`,
+      text: `${status} ${date} | ${String(game.title || "Игра").slice(0, 28)} | 👥 ${game.booked}`,
       callback_data: `admin:players:${game.id}`
     }];
   });
@@ -127,7 +147,7 @@ async function showAdminGames(env, chatId) {
   return send(
     env,
     chatId,
-    "📋 <b>Все игры</b>\nВыбери игру, чтобы посмотреть участников:",
+    "📋 <b>Все игры</b>\n\n🟢 Запись открыта\n⚫ Запись закрыта\n🔴 Игра отменена\n🟡 Ожидает подтверждения\n\nВыбери игру:",
     { inline_keyboard: buttons }
   );
 }
@@ -137,9 +157,7 @@ async function showAdminPlayers(env, chatId, gameId) {
     "SELECT * FROM games WHERE id=?"
   ).bind(gameId).first();
 
-  if (!game) {
-    return send(env, chatId, "Игра не найдена.");
-  }
+  if (!game) return send(env, chatId, "Игра не найдена.");
 
   const rows = await env.DB.prepare(
     `SELECT organizer_name,phone,participants
@@ -157,6 +175,8 @@ async function showAdminPlayers(env, chatId, gameId) {
   let message =
     `🎯 <b>${escapeHtml(game.title || "Открытая игра")}</b>\n` +
     `📅 ${date} в ${escapeHtml(game.game_time)}\n` +
+    `💰 ${escapeHtml(game.price || "Уточняется")}\n` +
+    `📌 Статус: ${escapeHtml(game.status)}\n` +
     `👥 <b>Всего участников: ${total}</b>\n\n`;
 
   if (!rows.results.length) {
@@ -170,55 +190,139 @@ async function showAdminPlayers(env, chatId, gameId) {
     });
   }
 
+  const statusButton = game.status === "open"
+    ? { text: "🔒 Закрыть запись", callback_data: `admin:close:${gameId}` }
+    : game.status === "closed"
+      ? { text: "🟢 Открыть запись", callback_data: `admin:open:${gameId}` }
+      : null;
+
+  const buttons = [];
+
+  if (statusButton) buttons.push([statusButton]);
+
+  if (game.status !== "cancelled") {
+    buttons.push([
+      { text: "📅 Изменить дату", callback_data: `admin:date:${gameId}` },
+      { text: "🕒 Изменить время", callback_data: `admin:time:${gameId}` }
+    ]);
+
+    buttons.push([
+      { text: "💰 Изменить цену", callback_data: `admin:price:${gameId}` }
+    ]);
+
+    buttons.push([
+      { text: "📢 Уведомить игроков", callback_data: `admin:notify:${gameId}` }
+    ]);
+
+    buttons.push([
+      { text: "❌ Отменить игру", callback_data: `admin:cancel:${gameId}` }
+    ]);
+  }
+
+  buttons.push([
+    { text: "⬅️ К списку игр", callback_data: "admin:games" }
+  ]);
+
+  buttons.push([
+    { text: "⚙️ В админ-панель", callback_data: "admin:menu" }
+  ]);
+
   return send(env, chatId, message, {
-    inline_keyboard: [
-      [{ text: "⬅️ К списку игр", callback_data: "admin:games" }],
-      [{ text: "⚙️ В админ-панель", callback_data: "admin:menu" }]
-    ]
+    inline_keyboard: buttons
   });
 }
 
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
+async function notifyGamePlayers(env, gameId, message) {
+  const rows = await env.DB.prepare(
+    `SELECT DISTINCT telegram_id
+     FROM bookings
+     WHERE game_id=? AND status='active'`
+  ).bind(gameId).all();
+
+  let sent = 0;
+  let failed = 0;
+
+  for (const row of rows.results) {
+    const result = await send(env, row.telegram_id, message);
+
+    if (result?.ok) sent++;
+    else failed++;
+  }
+
+  return { total: rows.results.length, sent, failed };
 }
 
-function parseGame(text) {
-  const dateMatch = text.match(/\b(\d{2})\.(\d{2})\.(\d{4})\b/);
-  const timeMatch = text.match(/\b([01]?\d|2[0-3]):[0-5]\d\b/);
-  const priceMatch = text.match(/(\d[\d ]*)\s*₽/i);
-  if (!dateMatch || !timeMatch) return null;
+async function getGame(env, gameId) {
+  return env.DB.prepare(
+    "SELECT * FROM games WHERE id=?"
+  ).bind(gameId).first();
+}
 
-  const [, day, month, year] = dateMatch;
-  const date = `${year}-${month}-${day}`;
-  const parsedDate = new Date(`${date}T00:00:00`);
+async function adminEditStart(env, chatId, userId, gameId, editType) {
+  const game = await getGame(env, gameId);
 
-  if (
-    Number.isNaN(parsedDate.getTime()) ||
-    parsedDate.getFullYear() !== Number(year) ||
-    parsedDate.getMonth() + 1 !== Number(month) ||
-    parsedDate.getDate() !== Number(day)
-  ) return null;
+  if (!game) return send(env, chatId, "Игра не найдена.");
 
-  const cleanText = text.replace(/#открытаяигра/ig, "").trim();
-  const firstLine =
-    cleanText.split(/\r?\n/).find(line => line.trim()) || "Открытая игра";
+  if (game.status === "cancelled") {
+    return send(env, chatId, "Нельзя редактировать отменённую игру.");
+  }
 
-  return {
-    title: firstLine.slice(0, 150) || "Открытая игра",
-    date,
-    time: timeMatch[0].length === 4 ? `0${timeMatch[0]}` : timeMatch[0],
-    price: priceMatch ? `${priceMatch[1].trim()} ₽` : "Уточняется",
-    description: cleanText.slice(0, 3500)
+  const prompts = {
+    date: "📅 Введи новую дату игры в формате ДД.ММ.ГГГГ.",
+    time: "🕒 Введи новое время игры в формате ЧЧ:ММ.",
+    price: "💰 Введи новую цену игры. Например: 2500 ₽ или 2300 ₽ безлимит."
   };
+
+  await state(env, userId, `admin_edit_${editType}`, { gameId });
+
+  return send(
+    env,
+    chatId,
+    prompts[editType],
+    {
+      inline_keyboard: [[
+        { text: "⬅️ Назад к игре", callback_data: `admin:players:${gameId}` }
+      ]]
+    }
+  );
+}
+
+async function adminCancelGame(env, chatId, gameId) {
+  const game = await getGame(env, gameId);
+
+  if (!game) return send(env, chatId, "Игра не найдена.");
+
+  if (game.status === "cancelled") {
+    return send(env, chatId, "Эта игра уже отменена.");
+  }
+
+  return send(
+    env,
+    chatId,
+    `⚠️ <b>Подтверждение отмены игры</b>\n\n` +
+    `${escapeHtml(game.title)}\n` +
+    `Дата: ${String(game.game_date).split("-").reverse().join(".")}\n` +
+    `Время: ${escapeHtml(game.game_time)}\n\n` +
+    `Игра будет отменена, а все записанные игроки получат уведомление.\n\nОтменить игру?`,
+    {
+      inline_keyboard: [
+        [
+          { text: "❌ Да, отменить", callback_data: `admin:cancel_confirm:${gameId}` }
+        ],
+        [
+          { text: "⬅️ Нет, назад", callback_data: `admin:players:${gameId}` }
+        ]
+      ]
+    }
+  );
 }
 
 async function showGames(env, chatId) {
   const rows = await env.DB.prepare(
     `SELECT g.*,
-       COALESCE(SUM(CASE WHEN b.status='active' THEN b.participants ELSE 0 END),0) AS booked
+       COALESCE(SUM(
+         CASE WHEN b.status='active' THEN b.participants ELSE 0 END
+       ),0) AS booked
      FROM games g
      LEFT JOIN bookings b ON b.game_id=g.id
      WHERE g.status='open'
@@ -312,10 +416,39 @@ async function notifyAdmins(env, message) {
   ])];
 
   for (const id of ids) {
-    if (id && id !== "undefined") {
-      await send(env, id, message);
-    }
+    if (id && id !== "undefined") await send(env, id, message);
   }
+}
+
+function parseGame(text) {
+  const dateMatch = text.match(/\b(\d{2})\.(\d{2})\.(\d{4})\b/);
+  const timeMatch = text.match(/\b([01]?\d|2[0-3]):[0-5]\d\b/);
+  const priceMatch = text.match(/(\d[\d ]*)\s*₽/i);
+
+  if (!dateMatch || !timeMatch) return null;
+
+  const [, day, month, year] = dateMatch;
+  const date = `${year}-${month}-${day}`;
+  const parsedDate = new Date(`${date}T00:00:00`);
+
+  if (
+    Number.isNaN(parsedDate.getTime()) ||
+    parsedDate.getFullYear() !== Number(year) ||
+    parsedDate.getMonth() + 1 !== Number(month) ||
+    parsedDate.getDate() !== Number(day)
+  ) return null;
+
+  const cleanText = text.replace(/#открытаяигра/ig, "").trim();
+  const firstLine =
+    cleanText.split(/\r?\n/).find(line => line.trim()) || "Открытая игра";
+
+  return {
+    title: firstLine.slice(0, 150) || "Открытая игра",
+    date,
+    time: timeMatch[0].length === 4 ? `0${timeMatch[0]}` : timeMatch[0],
+    price: priceMatch ? `${priceMatch[1].trim()} ₽` : "Уточняется",
+    description: cleanText.slice(0, 3500)
+  };
 }
 
 async function handleMessage(env, msg) {
@@ -382,6 +515,120 @@ async function handleMessage(env, msg) {
   if (!current) return;
 
   const data = JSON.parse(current.data || "{}");
+
+  // Администратор: ввод новой даты игры
+  if (current.state === "admin_edit_date") {
+    const match = text.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+
+    if (!match) {
+      return send(env, chatId, "Неверный формат. Введи дату ДД.ММ.ГГГГ.");
+    }
+
+    const [, day, month, year] = match;
+    const date = `${year}-${month}-${day}`;
+    const parsed = new Date(`${date}T00:00:00`);
+
+    if (
+      Number.isNaN(parsed.getTime()) ||
+      parsed.getFullYear() !== Number(year) ||
+      parsed.getMonth() + 1 !== Number(month) ||
+      parsed.getDate() !== Number(day)
+    ) {
+      return send(env, chatId, "Такой даты не существует. Попробуй ещё раз.");
+    }
+
+    const game = await getGame(env, data.gameId);
+
+    if (!game || game.status === "cancelled") {
+      await clearState(env, userId);
+      return send(env, chatId, "Игра не найдена или уже отменена.");
+    }
+
+    await env.DB.prepare(
+      "UPDATE games SET game_date=?,updated_at=CURRENT_TIMESTAMP WHERE id=?"
+    ).bind(date, data.gameId).run();
+
+    await clearState(env, userId);
+
+    await send(env, chatId, "✅ Дата игры изменена.", adminBackKeyboard(data.gameId));
+
+    return showAdminPlayers(env, chatId, data.gameId);
+  }
+
+  // Администратор: ввод нового времени
+  if (current.state === "admin_edit_time") {
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(text)) {
+      return send(env, chatId, "Неверный формат. Введи время ЧЧ:ММ, например 13:00.");
+    }
+
+    const game = await getGame(env, data.gameId);
+
+    if (!game || game.status === "cancelled") {
+      await clearState(env, userId);
+      return send(env, chatId, "Игра не найдена или уже отменена.");
+    }
+
+    await env.DB.prepare(
+      "UPDATE games SET game_time=?,updated_at=CURRENT_TIMESTAMP WHERE id=?"
+    ).bind(text, data.gameId).run();
+
+    await clearState(env, userId);
+
+    await send(env, chatId, "✅ Время игры изменено.");
+    return showAdminPlayers(env, chatId, data.gameId);
+  }
+
+  // Администратор: ввод новой цены
+  if (current.state === "admin_edit_price") {
+    if (text.length < 1 || text.length > 100) {
+      return send(env, chatId, "Цена должна содержать от 1 до 100 символов.");
+    }
+
+    const game = await getGame(env, data.gameId);
+
+    if (!game || game.status === "cancelled") {
+      await clearState(env, userId);
+      return send(env, chatId, "Игра не найдена или уже отменена.");
+    }
+
+    await env.DB.prepare(
+      "UPDATE games SET price=?,updated_at=CURRENT_TIMESTAMP WHERE id=?"
+    ).bind(text, data.gameId).run();
+
+    await clearState(env, userId);
+
+    await send(env, chatId, "✅ Цена игры изменена.");
+    return showAdminPlayers(env, chatId, data.gameId);
+  }
+
+  // Администратор: текст уведомления игрокам
+  if (current.state === "admin_notify") {
+    if (text.length < 1 || text.length > 3500) {
+      return send(env, chatId, "Сообщение должно содержать от 1 до 3500 символов.");
+    }
+
+    const game = await getGame(env, data.gameId);
+
+    if (!game) {
+      await clearState(env, userId);
+      return send(env, chatId, "Игра не найдена.");
+    }
+
+    const result = await notifyGamePlayers(
+      env,
+      data.gameId,
+      `📢 <b>Сообщение от клуба «Стрелок»</b>\n\n${escapeHtml(text)}`
+    );
+
+    await clearState(env, userId);
+
+    return send(
+      env,
+      chatId,
+      `✅ Рассылка завершена.\n\nВсего записей: ${result.total}\nДоставлено: ${result.sent}\nОшибок доставки: ${result.failed}`,
+      adminBackKeyboard(data.gameId)
+    );
+  }
 
   if (current.state === "name") {
     if (text.length < 2 || text.length > 100) {
@@ -541,6 +788,7 @@ async function handleCallback(env, query) {
 
   if (!chatId || !userId) return;
 
+  // Все административные действия проверяют права
   if (callbackData.startsWith("admin:")) {
     if (!(await isAdmin(env, userId))) {
       return send(env, chatId, "Недостаточно прав.");
@@ -563,6 +811,102 @@ async function handleCallback(env, query) {
 
       return showAdminPlayers(env, chatId, gameId);
     }
+
+    const parts = callbackData.split(":");
+    const action = parts[1];
+    const gameId = Number(parts[2]);
+
+    if (!Number.isInteger(gameId) || gameId < 1) {
+      return send(env, chatId, "Некорректный номер игры.");
+    }
+
+    const game = await getGame(env, gameId);
+
+    if (!game) return send(env, chatId, "Игра не найдена.");
+
+    if (action === "close") {
+      if (game.status !== "open") {
+        return send(env, chatId, "Запись на эту игру уже закрыта или игра недоступна.");
+      }
+
+      await env.DB.prepare(
+        "UPDATE games SET status='closed',updated_at=CURRENT_TIMESTAMP WHERE id=?"
+      ).bind(gameId).run();
+
+      await send(env, chatId, "🔒 Запись на игру закрыта.");
+      return showAdminPlayers(env, chatId, gameId);
+    }
+
+    if (action === "open") {
+      if (game.status !== "closed") {
+        return send(env, chatId, "Открыть запись можно только для закрытой игры.");
+      }
+
+      await env.DB.prepare(
+        "UPDATE games SET status='open',updated_at=CURRENT_TIMESTAMP WHERE id=?"
+      ).bind(gameId).run();
+
+      await send(env, chatId, "🟢 Запись на игру снова открыта.");
+      return showAdminPlayers(env, chatId, gameId);
+    }
+
+    if (action === "date" || action === "time" || action === "price") {
+      return adminEditStart(env, chatId, userId, gameId, action);
+    }
+
+    if (action === "notify") {
+      await state(env, userId, "admin_notify", { gameId });
+
+      return send(
+        env,
+        chatId,
+        "📢 Напиши текст уведомления. Оно будет отправлено всем активным участникам этой игры.",
+        {
+          inline_keyboard: [[
+            { text: "⬅️ Отмена", callback_data: `admin:players:${gameId}` }
+          ]]
+        }
+      );
+    }
+
+    if (action === "cancel") {
+      return adminCancelGame(env, chatId, gameId);
+    }
+
+    if (action === "cancel_confirm") {
+      if (game.status === "cancelled") {
+        return send(env, chatId, "Игра уже отменена.");
+      }
+
+      await env.DB.prepare(
+        "UPDATE games SET status='cancelled',updated_at=CURRENT_TIMESTAMP WHERE id=?"
+      ).bind(gameId).run();
+
+      const date = String(game.game_date).split("-").reverse().join(".");
+
+      const result = await notifyGamePlayers(
+        env,
+        gameId,
+        `❌ <b>Игра отменена</b>\n\n` +
+        `${escapeHtml(game.title || "Открытая игра")}\n` +
+        `📅 ${date}\n🕒 ${escapeHtml(game.game_time)}\n\n` +
+        `К сожалению, игра отменена. Приносим извинения за неудобства.`
+      );
+
+      await send(
+        env,
+        chatId,
+        `❌ Игра отменена.\n\nУведомлений отправлено: ${result.sent}\nОшибок доставки: ${result.failed}`,
+        {
+          inline_keyboard: [
+            [{ text: "📋 К списку игр", callback_data: "admin:games" }],
+            [{ text: "⚙️ В админ-панель", callback_data: "admin:menu" }]
+          ]
+        }
+      );
+
+      return;
+    }
   }
 
   if (callbackData.startsWith("book:")) {
@@ -581,13 +925,9 @@ async function handleCallback(env, query) {
       "SELECT id FROM bookings WHERE id=? AND telegram_id=? AND status='active'"
     ).bind(id, String(userId)).first();
 
-    if (!booking) {
-      return send(env, chatId, "Активная запись не найдена.");
-    }
+    if (!booking) return send(env, chatId, "Активная запись не найдена.");
 
-    await state(env, userId, "edit_count", {
-      bookingId: id
-    });
+    await state(env, userId, "edit_count", { bookingId: id });
 
     return send(env, chatId, "Введи новое общее количество участников (от 1 до 100).");
   }
@@ -599,13 +939,9 @@ async function handleCallback(env, query) {
       "SELECT id FROM bookings WHERE id=? AND telegram_id=? AND status='active'"
     ).bind(id, String(userId)).first();
 
-    if (!booking) {
-      return send(env, chatId, "Активная запись не найдена.");
-    }
+    if (!booking) return send(env, chatId, "Активная запись не найдена.");
 
-    await state(env, userId, "edit_phone", {
-      bookingId: id
-    });
+    await state(env, userId, "edit_phone", { bookingId: id });
 
     return send(env, chatId, "Введи новый номер телефона организатора.");
   }
@@ -617,9 +953,7 @@ async function handleCallback(env, query) {
       "SELECT * FROM bookings WHERE id=? AND telegram_id=? AND status='active'"
     ).bind(id, String(userId)).first();
 
-    if (!booking) {
-      return send(env, chatId, "Активная запись не найдена.");
-    }
+    if (!booking) return send(env, chatId, "Активная запись не найдена.");
 
     await env.DB.prepare(
       "UPDATE bookings SET status='cancelled',updated_at=CURRENT_TIMESTAMP WHERE id=?"
@@ -628,10 +962,7 @@ async function handleCallback(env, query) {
     await env.DB.prepare(
       `INSERT INTO booking_history (booking_id,action,old_data)
        VALUES (?,'cancelled',?)`
-    ).bind(
-      id,
-      JSON.stringify(booking)
-    ).run();
+    ).bind(id, JSON.stringify(booking)).run();
 
     await send(env, chatId, "Запись отменена.", mainMenu);
 
@@ -658,9 +989,7 @@ async function handleCallback(env, query) {
       "SELECT * FROM games WHERE id=? AND status='pending'"
     ).bind(id).first();
 
-    if (!game) {
-      return send(env, chatId, "Игра уже обработана.");
-    }
+    if (!game) return send(env, chatId, "Игра уже обработана.");
 
     if (action === "approve") {
       await env.DB.prepare(
