@@ -1174,6 +1174,7 @@ async function ensureMiniAppTables(env) {
   `).run();
 }
 
+async function ensureVenueTables(env){await env.DB.prepare("CREATE TABLE IF NOT EXISTS venues(slug TEXT PRIMARY KEY,name TEXT NOT NULL,games TEXT NOT NULL,description TEXT DEFAULT '',address TEXT DEFAULT '',sort_order INTEGER DEFAULT 0)").run();await env.DB.prepare("CREATE TABLE IF NOT EXISTS venue_photos(id INTEGER PRIMARY KEY AUTOINCREMENT,venue_slug TEXT NOT NULL,file_id TEXT NOT NULL,created_at TEXT DEFAULT CURRENT_TIMESTAMP)").run();for(const x of [["bunker","Бункер","страйкбол, лазертаг",1],["admiral","Адмирал","страйкбол, ребол, лазертаг",2],["glubokoe-ozero","Глубокое озеро","страйкбол, пейнтбол, лазертаг",3]])await env.DB.prepare("INSERT OR IGNORE INTO venues(slug,name,games,sort_order) VALUES(?,?,?,?)").bind(...x).run();}
 async function miniAppApi(request, env, url) {
   try {
     const user = await verifyTelegramInitData(request, env);
@@ -1348,6 +1349,12 @@ if (!phone) {
       });
     }
 
+
+if(path==="/api/venues"&&method==="GET"){await ensureVenueTables(env);const v=await env.DB.prepare("SELECT * FROM venues ORDER BY sort_order").all(),p=await env.DB.prepare("SELECT id,venue_slug FROM venue_photos").all();return miniJson({venues:(v.results||[]).map(x=>({...x,photos:(p.results||[]).filter(y=>y.venue_slug===x.slug).map(y=>"/venue-photo?id="+y.id)}))});}
+if(path==="/api/admin/venues"&&method==="GET"){if(!role)return miniJson({error:"Нет доступа"},403);await ensureVenueTables(env);const v=await env.DB.prepare("SELECT * FROM venues ORDER BY sort_order").all(),p=await env.DB.prepare("SELECT id,venue_slug FROM venue_photos").all();return miniJson({venues:(v.results||[]).map(x=>({...x,photos:(p.results||[]).filter(y=>y.venue_slug===x.slug).map(y=>({id:y.id,url:"/venue-photo?id="+y.id}))}))});}
+if(path.startsWith("/api/admin/venues/")&&method==="PUT"){if(!role)return miniJson({error:"Нет доступа"},403);await ensureVenueTables(env);const s=decodeURIComponent(path.split("/").pop()||""),b=await readBody();if(!["bunker","admiral","glubokoe-ozero"].includes(s)||!b)return miniJson({error:"Неверные данные"},400);const d=String(b.description||"").trim(),a=String(b.address||"").trim();if(d.length>5000||a.length>1000)return miniJson({error:"Слишком длинный текст"},400);await env.DB.prepare("UPDATE venues SET description=?,address=? WHERE slug=?").bind(d,a,s).run();return miniJson({success:true});}
+if(path==="/api/admin/venues/photo"&&method==="POST"){if(!role)return miniJson({error:"Нет доступа"},403);await ensureVenueTables(env);const f=await request.formData(),s=String(f.get("venue_slug")||""),photo=f.get("photo");if(!["bunker","admiral","glubokoe-ozero"].includes(s)||!photo||typeof photo.arrayBuffer!=="function")return miniJson({error:"Не выбрана площадка или фотография"},400);if(!["image/jpeg","image/png","image/webp"].includes(photo.type)||photo.size>10*1024*1024)return miniJson({error:"Поддерживаются JPG, PNG и WebP до 10 МБ"},400);const up=new FormData();up.append("chat_id",String(env.OWNER_ID||"752535421"));up.append("photo",photo,photo.name||"venue-photo");const rr=await fetch(API(env.TELEGRAM_BOT_TOKEN,"sendPhoto"),{method:"POST",body:up}),t=await rr.json();if(!t.ok||!t.result?.photo?.length)return miniJson({error:"Telegram не принял фото. Сначала откройте диалог с ботом."},502);await env.DB.prepare("INSERT INTO venue_photos(venue_slug,file_id) VALUES(?,?)").bind(s,t.result.photo[t.result.photo.length-1].file_id).run();return miniJson({success:true});}
+if(path.startsWith("/api/admin/venues/photo/")&&method==="DELETE"){if(!role)return miniJson({error:"Нет доступа"},403);await ensureVenueTables(env);const id=Number(path.split("/").pop());if(!Number.isInteger(id)||id<1)return miniJson({error:"Неверный идентификатор фото"},400);await env.DB.prepare("DELETE FROM venue_photos WHERE id=?").bind(id).run();return miniJson({success:true});}
     // Информация о клубе
     if (path === "/api/club" && method === "GET") {
       const club = await env.DB.prepare(`
@@ -1619,6 +1626,7 @@ export default {
       return Response.json(result);
     }
 
+    if(url.pathname==="/venue-photo"&&request.method==="GET"){const id=Number(url.searchParams.get("id"));if(!Number.isInteger(id)||id<1)return new Response("Not found",{status:404});const row=await env.DB.prepare("SELECT file_id FROM venue_photos WHERE id=?").bind(id).first();if(!row?.file_id)return new Response("Not found",{status:404});const f=await tg(env,"getFile",{file_id:row.file_id});if(!f.ok||!f.result?.file_path)return new Response("Photo unavailable",{status:502});const x=await fetch(`https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${f.result.file_path}`);if(!x.ok)return new Response("Photo unavailable",{status:502});return new Response(x.body,{headers:{"Content-Type":x.headers.get("Content-Type")||"image/jpeg","Cache-Control":"public, max-age=3600"}});}
     if (url.pathname.startsWith("/api/")) {
   return miniAppApi(request, env, url);
 }
