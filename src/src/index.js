@@ -1565,6 +1565,10 @@ if (!phone) {
     if (path === "/api/admin/orders" && method === "GET") {
       if (!role) return miniJson({ error: "Нет доступа" }, 403);
 
+      await env.DB.prepare(`
+        DELETE FROM order_requests WHERE status = 'Отклонена'
+      `).run();
+
       const result = await env.DB.prepare(`
         SELECT * FROM order_requests ORDER BY created_at DESC
       `).all();
@@ -1589,17 +1593,25 @@ if (!phone) {
         return miniJson({ error: "Недопустимый статус" }, 400);
       }
 
-      const result = await env.DB.prepare(`
-        UPDATE order_requests
-        SET status = ?, updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-      `).bind(status, Number(orderMatch[1])).run();
+      let result;
+
+      if (status === "Отклонена") {
+        result = await env.DB.prepare(`
+          DELETE FROM order_requests WHERE id = ?
+        `).bind(Number(orderMatch[1])).run();
+      } else {
+        result = await env.DB.prepare(`
+          UPDATE order_requests
+          SET status = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `).bind(status, Number(orderMatch[1])).run();
+      }
 
       if (!result.meta?.changes) {
         return miniJson({ error: "Заявка не найдена" }, 404);
       }
 
-      return miniJson({ success: true });
+      return miniJson({ success: true, deleted: status === "Отклонена" });
     }
 
     return miniJson({ error: "Маршрут не найден" }, 404);
