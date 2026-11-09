@@ -1244,11 +1244,21 @@ async function miniAppApi(request, env, url) {
       const name = String(body.organizer_name || "").trim();
       const phone = String(body.phone || "").trim();
 
-      if (!Number.isInteger(gameId) || gameId < 1 ||
-          !Number.isInteger(participants) || participants < 1 ||
-          participants > 30 || !name || !phone) {
-        return miniJson({ error: "Проверьте данные записи" }, 400);
-      }
+      if (!Number.isInteger(gameId) || gameId < 1) {
+  return miniJson({ error: "Ошибка: не определена игра" }, 400);
+}
+
+if (!Number.isInteger(participants) || participants < 1 || participants > 30) {
+  return miniJson({ error: "Ошибка: количество участников должно быть от 1 до 30" }, 400);
+}
+
+if (!name) {
+  return miniJson({ error: "Ошибка: не указано имя" }, 400);
+}
+
+if (!phone) {
+  return miniJson({ error: "Ошибка: не указан телефон" }, 400);
+}
 
       const game = await env.DB.prepare(`
         SELECT id, title FROM games
