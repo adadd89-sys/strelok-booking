@@ -749,6 +749,7 @@ if (tg) {
 
 checkAdminAccess();
 
-checkAdminAccess();
+// Подгружаем площадки сразу, а не только при открытии раздела «О клубе».
+loadVenues();
 
 })();
