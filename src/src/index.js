@@ -1100,7 +1100,6 @@ const secretKey = await crypto.subtle.sign(
   webAppDataKey,
   encoder.encode(env.TELEGRAM_BOT_TOKEN)
 );
-    );
 
     const dataKey = await crypto.subtle.importKey(
       "raw",
