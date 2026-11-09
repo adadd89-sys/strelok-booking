@@ -1432,6 +1432,54 @@ if (!phone) {
     if (path === "/api/admin" && method === "GET") {
       return miniJson({ isAdmin: !!role, role: role || null });
     }
+        // Проверка доступа бота к каналу галереи
+    if (path === "/api/admin/gallery/check" && method === "GET") {
+      if (!role) return miniJson({ error: "Нет доступа" }, 403);
+
+      if (!env.GALLERY_CHANNEL_ID) {
+        return miniJson({ error: "Не задан ID канала" }, 500);
+      }
+
+      const chat = await tg(env, "getChat", {
+        chat_id: env.GALLERY_CHANNEL_ID
+      });
+
+      if (!chat.ok) {
+        return miniJson({
+          error: "Бот не видит канал",
+          details: chat.description || "Telegram не подтвердил доступ"
+        }, 400);
+      }
+
+      const me = await tg(env, "getMe", {});
+      if (!me.ok) {
+        return miniJson({ error: "Не удалось получить данные бота" }, 500);
+      }
+
+      const member = await tg(env, "getChatMember", {
+        chat_id: env.GALLERY_CHANNEL_ID,
+        user_id: me.result.id
+      });
+
+      if (!member.ok) {
+        return miniJson({
+          error: "Не удалось проверить права бота",
+          details: member.description || ""
+        }, 400);
+      }
+
+      const canPost =
+        member.result.status === "creator" ||
+        (member.result.status === "administrator" &&
+         member.result.can_post_messages === true);
+
+      return miniJson({
+        success: true,
+        channel: chat.result.title || "Канал",
+        bot_status: member.result.status,
+        can_post_messages: canPost
+      });
+    }
 
     // Заявки на заказные игры
     if (path === "/api/admin/orders" && method === "GET") {
