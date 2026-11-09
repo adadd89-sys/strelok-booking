@@ -1380,6 +1380,17 @@ if (!phone) {
         values[field] = value;
       }
 
+      const clubColumns = await env.DB.prepare("PRAGMA table_info(club_info)").all();
+      const existingColumns = new Set((clubColumns.results || []).map(column => column.name));
+      for (const [column, definition] of [
+        ["telegram", "TEXT DEFAULT ''"],
+        ["vk", "TEXT DEFAULT ''"]
+      ]) {
+        if (!existingColumns.has(column)) {
+          await env.DB.prepare("ALTER TABLE club_info ADD COLUMN " + column + " " + definition).run();
+        }
+      }
+
       const existing = await env.DB.prepare(
         "SELECT id FROM club_info ORDER BY id LIMIT 1"
       ).first();
