@@ -601,26 +601,60 @@ function checkTelegramAuth() {
 
   window.submitOrderRequest = submitOrderRequest;
 
-  // СТАРТ
+  // ПРОВЕРКА ПРАВ АДМИНИСТРАТОРА ПРИ ЗАПУСКЕ
 
-  if (tg) {
-    tg.ready();
-    tg.expand();
-    api("/api/admin")
-  .then(data => {
-    if (data.isAdmin) {
-      const adminButton = $("adminHome");
-      if (adminButton) {
-        adminButton.style.display = "flex";
-      }
+async function checkAdminAccess() {
+  const adminButton = $("adminHome");
+  if (!adminButton) return;
+
+  adminButton.classList.add("admin-card");
+  adminButton.style.removeProperty("display");
+
+  try {
+    const data = await api("/api/admin");
+
+    if (data.isAdmin === true) {
+      adminButton.classList.remove("admin-card");
     }
-  })
-  .catch(error => console.error("Проверка администратора:", error));
-
-    try {
-      tg.setHeaderColor("#111315");
-      tg.setBackgroundColor("#111315");
-    } catch (error) {}
+  } catch (error) {
+    console.error("Проверка прав администратора:", error);
   }
+}
+
+// ПРОВЕРКА ПРАВ АДМИНИСТРАТОРА ПРИ ЗАПУСКЕ
+
+async function checkAdminAccess() {
+  const adminButton = $("adminHome");
+  if (!adminButton) return;
+
+  adminButton.classList.add("admin-card");
+  adminButton.style.removeProperty("display");
+
+  try {
+    const data = await api("/api/admin");
+
+    if (data.isAdmin === true) {
+      adminButton.classList.remove("admin-card");
+    }
+  } catch (error) {
+    console.error("Проверка прав администратора:", error);
+  }
+}
+
+// СТАРТ
+
+if (tg) {
+  tg.ready();
+  tg.expand();
+
+  try {
+    tg.setHeaderColor("#111315");
+    tg.setBackgroundColor("#111315");
+  } catch (error) {}
+}
+
+checkAdminAccess();
+
+checkAdminAccess();
 
 })();
