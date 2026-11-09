@@ -1,3 +1,4 @@
+
 const API = (token, method) =>
   `https://api.telegram.org/bot${token}/${method}`;
 
@@ -29,6 +30,21 @@ const mainMenu = {
   resize_keyboard: true
 };
 
+const adminMenu = {
+  keyboard: [
+    ["🎯 Открытые игры"],
+    ["📝 Мои записи", "ℹ️ Информация о клубе"],
+    ["⚙️ Администрирование"]
+  ],
+  resize_keyboard: true
+};
+
+const adminPanelMenu = {
+  inline_keyboard: [
+    [{ text: "📋 Список игр", callback_data: "admin:games" }]
+  ]
+};
+
 async function state(env, id, value, data = {}) {
   await env.DB.prepare(
     `INSERT INTO user_states (telegram_id,state,data)
@@ -58,6 +74,108 @@ async function isAdmin(env, id) {
     "SELECT role FROM admins WHERE telegram_id=?"
   ).bind(String(id)).first();
   return row?.role || null;
+}
+
+async function showAdminPanel(env, chatId) {
+  return send(
+    env,
+    chatId,
+    "⚙️ <b>Административная панель</b>\n\nВыбери действие:",
+    adminPanelMenu
+  );
+}
+
+async function showAdminGames(env, chatId) {
+  const rows = await env.DB.prepare(
+    `SELECT g.*,
+       COALESCE(SUM(CASE WHEN b.status='active' THEN b.participants ELSE 0 END),0) AS booked
+     FROM games g
+     LEFT JOIN bookings b ON b.game_id=g.id
+     GROUP BY g.id
+     ORDER BY g.game_date DESC,g.game_time DESC
+     LIMIT 20`
+  ).all();
+
+  if (!rows.results.length) {
+    return send(env, chatId, "Игры пока не добавлены.", {
+      inline_keyboard: [[
+        { text: "⬅️ В админ-панель", callback_data: "admin:menu" }
+      ]]
+    });
+  }
+
+  const buttons = rows.results.map(game => {
+    const date = String(game.game_date).split("-").reverse().join(".");
+    const status = {
+      open: "🟢",
+      pending: "🟡",
+      cancelled: "🔴",
+      closed: "⚫"
+    }[game.status] || "❔";
+
+    return [{
+      text: `${status} ${date} | ${String(game.title || "Игра").slice(0, 35)} | 👥 ${game.booked}`,
+      callback_data: `admin:players:${game.id}`
+    }];
+  });
+
+  buttons.push([{
+    text: "⬅️ В админ-панель",
+    callback_data: "admin:menu"
+  }]);
+
+  return send(
+    env,
+    chatId,
+    "📋 <b>Все игры</b>\nВыбери игру, чтобы посмотреть участников:",
+    { inline_keyboard: buttons }
+  );
+}
+
+async function showAdminPlayers(env, chatId, gameId) {
+  const game = await env.DB.prepare(
+    "SELECT * FROM games WHERE id=?"
+  ).bind(gameId).first();
+
+  if (!game) {
+    return send(env, chatId, "Игра не найдена.");
+  }
+
+  const rows = await env.DB.prepare(
+    `SELECT organizer_name,phone,participants
+     FROM bookings
+     WHERE game_id=? AND status='active'
+     ORDER BY created_at`
+  ).bind(gameId).all();
+
+  const date = String(game.game_date).split("-").reverse().join(".");
+  const total = rows.results.reduce(
+    (sum, row) => sum + Number(row.participants || 0),
+    0
+  );
+
+  let message =
+    `🎯 <b>${escapeHtml(game.title || "Открытая игра")}</b>\n` +
+    `📅 ${date} в ${escapeHtml(game.game_time)}\n` +
+    `👥 <b>Всего участников: ${total}</b>\n\n`;
+
+  if (!rows.results.length) {
+    message += "Пока никто не записался.";
+  } else {
+    rows.results.forEach((row, index) => {
+      message +=
+        `${index + 1}. ${escapeHtml(row.organizer_name)}\n` +
+        `📞 ${escapeHtml(row.phone)}\n` +
+        `👥 Человек: ${row.participants}\n\n`;
+    });
+  }
+
+  return send(env, chatId, message, {
+    inline_keyboard: [
+      [{ text: "⬅️ К списку игр", callback_data: "admin:games" }],
+      [{ text: "⚙️ В админ-панель", callback_data: "admin:menu" }]
+    ]
+  });
 }
 
 function escapeHtml(value) {
@@ -219,8 +337,18 @@ async function handleMessage(env, msg) {
       env,
       chatId,
       "Добро пожаловать в клуб «Стрелок»!\nЗдесь можно посмотреть открытые игры и записаться на участие.",
-      mainMenu
+      (await isAdmin(env, userId)) ? adminMenu : mainMenu
     );
+  }
+
+  if (text === "⚙️ Администрирование") {
+    await clearState(env, userId);
+
+    if (!(await isAdmin(env, userId))) {
+      return send(env, chatId, "Недостаточно прав.");
+    }
+
+    return showAdminPanel(env, chatId);
   }
 
   if (text === "🎯 Открытые игры") {
@@ -412,6 +540,30 @@ async function handleCallback(env, query) {
   });
 
   if (!chatId || !userId) return;
+
+  if (callbackData.startsWith("admin:")) {
+    if (!(await isAdmin(env, userId))) {
+      return send(env, chatId, "Недостаточно прав.");
+    }
+
+    if (callbackData === "admin:menu") {
+      return showAdminPanel(env, chatId);
+    }
+
+    if (callbackData === "admin:games") {
+      return showAdminGames(env, chatId);
+    }
+
+    if (callbackData.startsWith("admin:players:")) {
+      const gameId = Number(callbackData.split(":")[2]);
+
+      if (!Number.isInteger(gameId) || gameId < 1) {
+        return send(env, chatId, "Некорректный номер игры.");
+      }
+
+      return showAdminPlayers(env, chatId, gameId);
+    }
+  }
 
   if (callbackData.startsWith("book:")) {
     return startBooking(
