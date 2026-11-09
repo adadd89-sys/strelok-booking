@@ -448,6 +448,10 @@ function checkTelegramAuth() {
         <span class="status">● Доступ разрешён</span>
         <h3>Панель администратора</h3>
         <p class="muted">Административный доступ подтверждён.</p>
+        <button class="secondary" id="checkGalleryChannel">
+          Проверить канал галереи
+        </button>
+        <p id="galleryCheckResult" class="muted"></p>
       `;
 
       await loadAdminOrders();
@@ -551,6 +555,27 @@ function checkTelegramAuth() {
 
   // ОБРАБОТЧИКИ КНОПОК
 
+  const galleryButton = event.target.closest("#checkGalleryChannel");
+    if (galleryButton) {
+      const result = $("galleryCheckResult");
+      galleryButton.disabled = true;
+      result.textContent = "Проверяем канал...";
+
+      try {
+        const data = await api("/api/admin/gallery/check");
+
+        result.textContent =
+          "Канал: " + data.channel +
+          "\nСтатус бота: " + data.bot_status +
+          "\nПубликация: " +
+          (data.can_post_messages ? "разрешена ✅" : "не разрешена ❌");
+      } catch (error) {
+        result.textContent = "Ошибка: " + error.message;
+      } finally {
+        galleryButton.disabled = false;
+      }
+      return;
+    }
   document.addEventListener("click", event => {
     const bookButton = event.target.closest("[data-book-game]");
     if (bookButton) {
