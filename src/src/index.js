@@ -1000,10 +1000,10 @@ async function handleCallback(env, query) {
     }
 
     await env.DB.prepare(
-      "UPDATE games SET status='cancelled',updated_at=CURRENT_TIMESTAMP WHERE id=?"
+      "DELETE FROM games WHERE id=? AND status='pending'"
     ).bind(id).run();
 
-    return send(env, chatId, `Игра ${id} отклонена.`);
+    return send(env, chatId, `Игра ${id} отклонена и удалена из списка игр.`);
   }
 }
 
