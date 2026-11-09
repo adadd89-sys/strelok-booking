@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+
+<html lang="ru">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <meta name="theme-color" content="#101010">
+
+  <title>Стрелок | Бронирование игр</title>
+
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <style>
+
+    * {
+
+      box-sizing: border-box;
+
+      margin: 0;
+
+      padding: 0;
+
+    }
+
+    body {
+
+      background: #101010;
+
+      color: #fff;
+
+      font-family: Arial, sans-serif;
+
+      padding-bottom: 100px;
+
+    }
+
+    :root {
+
+      --orange: #ff8500;
+
+      --card: #1b1b1b;
+
+      --muted: #999;
+
+    }
+
+    .header {
+
+      padding: 25px 20px 10px;
+
+      display: flex;
+
+      align-items: center;
+
+      justify-content: space-between;
+
+    }
+
+    .logo {
+
+      font-size: 30px;
+
+      font-weight: 900;
+
+      letter-spacing: 2px;
+
+    }
+
+    .logo span {
+
+      color: var(--orange);
+
+    }
+
+    .subtitle {
+
+      color: var(--orange);
+
+      font-size: 11px;
+
+      font-weight: bold;
+
+      margin-top: 4px;
+
+      letter-spacing: 1px;
+
+    }
+
+    .hero {
+
+      margin: 15px;
+
+      height: 240px;
+
+      border-radius: 18px;
+
+      background:
+
+        linear-gradient(90deg, rgba(0,0,0,.9), rgba(0,0,0,.15)),
+
+        url("https://images.unsplash.com/photo-1519608487953-e999c86e7455?w=1000")
+
+        center/cover;
+
+      display: flex;
+
+      align-items: center;
+
+      padding: 20px;
+
+      border: 1px solid #444;
+
+    }
+
+    .hero h1 {
+
+      font-size: 32px;
+
+      line-height: 1.15;
+
+      text-transform: uppercase;
+
+      font-weight: 900;
+
+      max-width: 280px;
+
+    }
+
+    .hero h1 span {
+
+      color: var(--orange);
+
+    }
+
+    .section-title {
+
+      margin: 25px 18px 13px;
+
+      font-size: 20px;
+
+      font-weight: bold;
+
+    }
+
+    .main-card {
+
+      margin: 0 15px 14px;
+
+      min-height: 125px;
+
+      padding: 20px;
+
+      border-radius: 17px;
+
+      border: 1px solid #444;
+
+      background: linear-gradient(120deg, #292929, #151515);
+
+      display: flex;
+
+      align-items: center;
+
+      gap: 17px;
+
+      cursor: pointer;
+
+    }
+
+    .main-card:active,
+
+    .small-card:active {
+
+      transform: scale(.98);
+
+    }
+
+    .main-icon {
+
+      font-size: 42px;
+
+      color: var(--orange);
+
+      width: 65px;
+
+      text-align: center;
+
+    }
+
+    .card-content {
+
+      flex: 1;
+
+    }
+
+    .card-content h2 {
+
+      font-size: 19px;
+
+      margin-bottom: 7px;
+
+    }
+
+    .card-content p {
+
+      color: var(--muted);
+
+      font-size: 13px;
+
+      line-height: 1.4;
+
+    }
+
+    .arrow {
+
+      color: var(--orange);
+
+      font-size: 30px;
+
+    }
+
+    .small-grid {
+
+      display: grid;
+
+      grid-template-columns: 1fr 1fr;
+
+      gap: 12px;
+
+      margin: 0 15px;
+
+    }
+
+    .small-card {
+
+      min-height: 145px;
+
+      background: var(--card);
+
+      border: 1px solid #444;
+
+      border-radius: 17px;
+
+      padding: 16px;
+
+      cursor: pointer;
+
+    }
+
+    .small-card .main-icon {
+
+      text-align: left;
+
+      display: block;
+
+      margin-bottom: 12px;
+
+    }
+
+    .small-card h3 {
+
+      font-size: 16px;
+
+      margin-bottom: 7px;
+
+    }
+
+    .small-card p {
+
+      color: var(--muted);
+
+      font-size: 12px;
+
+      line-height: 1.4;
+
+    }
+
+    .page {
+
+      display: none;
+
+      padding: 20px 15px;
+
+    }
+
+    .page.active {
+
+      display: block;
+
+    }
+
+    .page h1 {
+
+      font-size: 25px;
+
+      margin-bottom: 20px;
+
+    }
+
+    .info-card {
+
+      background: var(--card);
+
+      padding: 18px;
+
+      border: 1px solid #444;
+
+      border-radius: 15px;
+
+      margin-bottom: 12px;
+
+      color: #ddd;
+
+      line-height: 1.5;
+
+    }
+
+    .bottom-nav {
+
+      position: fixed;
+
+      bottom: 0;
+
+      left: 0;
+
+      right: 0;
+
+      height: 75px;
+
+      background: #191919;
+
+      border-top: 1px solid #444;
+
+      display: flex;
+
+      justify-content: space-around;
+
+      align-items: center;
+
+      z-index: 10;
+
+      padding-bottom: env(safe-area-inset-bottom);
+
+    }
+
+    .nav-item {
+
+      background: none;
+
+      border: none;
+
+      color: #888;
+
+      font-size: 11px;
+
+      display: flex;
+
+      flex-direction: column;
+
+      align-items: center;
+
+      gap: 5px;
+
+      cursor: pointer;
+
+    }
+
+    .nav-item .nav-icon {
+
+      font-size: 23px;
+
+    }
+
+    .nav-item.active {
+
+      color: var(--orange);
+
+    }
+
+    .admin-card {
+
+      display: none;
+
+    }
+
+    .empty {
+
+      color: var(--muted);
+
+      line-height: 1.5;
+
+    }
+
+  </style>
+
+</head>
+
+<body>
+
+  <header class="header">
+
+    <div>
+
+      <div class="logo">СТРЕЛ<span>ОК</span></div>
+
+      <div class="subtitle">СТРАЙКБОЛ • ПЕЙНТБОЛ • РЕБОЛ</div>
+
+    </div>
+
+    <div style="font-size:27px">⚙️</div>
+
+  </header>
+
+  <main>
+
+    <section id="home" class="page active">
+
+      <div class="hero">
+
+        <h1>
+
+          ИГРАЙ.<br>
+
+          ОТДЫХАЙ.<br>
+
+          <span>БУДЬ В КОМАНДЕ!</span>
+
+        </h1>
+
+      </div>
+
+      <h2 class="section-title">Главное меню</h2>
+
+      <div class="main-card" onclick="showPage('games')">
+
+        <div class="main-icon">▦</div>
+
+        <div class="card-content">
+
+          <h2>Открытые игры</h2>
+
+          <p>Запишись на ближайшую игру и проверь количество участников</p>
+
+        </div>
+
+        <div class="arrow">›</div>
+
+      </div>
+
+      <div class="small-grid">
+
+        <div class="small-card" onclick="showPage('bookings')">
+
+          <span class="main-icon">🎟</span>
+
+          <h3>Мои бронирования</h3>
+
+          <p>Твои записи на игры</p>
+
+        </div>
+
+        <div class="small-card" onclick="showPage('club')">
+
+          <span class="main-icon">ⓘ</span>
+
+          <h3>О клубе</h3>
+
+          <p>Правила, условия и цены</p>
+
+        </div>
+
+        <div class="small-card" onclick="showPage('gallery')">
+
+          <span class="main-icon">▧</span>
+
+          <h3>Галерея</h3>
+
+          <p>Фото и видео наших игр</p>
+
+        </div>
+
+        <div class="small-card" onclick="showPage('contacts')">
+
+          <span class="main-icon">☎</span>
+
+          <h3>Контакты</h3>
+
+          <p>Свяжись с нами</p>
+
+        </div>
+
+      </div>
+
+      <div class="main-card admin-card" id="adminCard" onclick="showPage('admin')">
+
+        <div class="main-icon">★</div>
+
+        <div class="card-content">
+
+          <h2>Администрирование</h2>
+
+          <p>Управление играми клуба</p>
+
+        </div>
+
+        <div class="arrow">›</div>
+
+      </div>
+
+    </section>
+
+    <section id="games" class="page">
+
+      <h1>🎯 Открытые игры</h1>
+
+      <div class="info-card empty">
+
+        Здесь будут отображаться реальные открытые игры клуба.
+
+      </div>
+
+    </section>
+
+    <section id="bookings" class="page">
+
+      <h1>🎟 Мои бронирования</h1>
+
+      <div class="info-card empty">
+
+        Здесь будут отображаться твои записи на игры.
+
+      </div>
+
+    </section>
+
+    <section id="profile" class="page">
+
+      <h1>👤 Профиль</h1>
+
+      <div class="info-card">
+
+        <p>Добро пожаловать в клуб «Стрелок»!</p>
+
+        <p style="margin-top:10px">Здесь появятся данные твоего Telegram-профиля.</p>
+
+      </div>
+
+    </section>
+
+    <section id="more" class="page">
+
+      <h1>Ещё</h1>
+
+      <div class="info-card" onclick="showPage('club')">ℹ️ Информация о клубе</div>
+
+      <div class="info-card" onclick="showPage('gallery')">📸 Галерея</div>
+
+      <div class="info-card" onclick="showPage('contacts')">📞 Контакты</div>
+
+    </section>
+
+    <section id="club" class="page">
+
+      <h1>ℹ️ О клубе</h1>
+
+      <div class="info-card">Здесь появится информация о клубе, правила и цены.</div>
+
+    </section>
+
+    <section id="gallery" class="page">
+
+      <h1>📸 Галерея</h1>
+
+      <div class="info-card">Здесь разместим фотографии и видео с игр.</div>
+
+    </section>
+
+    <section id="contacts" class="page">
+
+      <h1>📞 Контакты</h1>
+
+      <div class="info-card">
+
+        Свяжись с клубом «Стрелок».<br><br>
+
+        Телефон: 89274306868
+
+      </div>
+
+    </section>
+
+    <section id="admin" class="page">
+
+      <h1>⚙️ Администрирование</h1>
+
+      <div class="info-card">
+
+        Здесь будет управление играми клуба.
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <nav class="bottom-nav">
+
+    <button class="nav-item active" onclick="showPage('home',this)">
+
+      <span class="nav-icon">⌂</span>
+
+      Главная
+
+    </button>
+
+    <button class="nav-item" onclick="showPage('games',this)">
+
+      <span class="nav-icon">▦</span>
+
+      Игры
+
+    </button>
+
+    <button class="nav-item" onclick="showPage('profile',this)">
+
+      <span class="nav-icon">♟</span>
+
+      Профиль
+
+    </button>
+
+    <button class="nav-item" onclick="showPage('more',this)">
+
+      <span class="nav-icon">•••</span>
+
+      Ещё
+
+    </button>
+
+  </nav>
+
+  <script>
+
+    const tg = window.Telegram?.WebApp;
+
+    if (tg) {
+
+      tg.ready();
+
+      tg.expand();
+
+      tg.setHeaderColor('#101010');
+
+      tg.setBackgroundColor('#101010');
+
+    }
+
+    function showPage(page, button) {
+
+      document.querySelectorAll('.page').forEach(el => {
+
+        el.classList.remove('active');
+
+      });
+
+      document.getElementById(page)?.classList.add('active');
+
+      document.querySelectorAll('.nav-item').forEach(el => {
+
+        el.classList.remove('active');
+
+      });
+
+      if (button) {
+
+        button.classList.add('active');
+
+      } else {
+
+        const nav = document.querySelector(
+
+          `.nav-item[onclick*="'${page}'"]`
+
+        );
+
+        if (nav) nav.classList.add('active');
+
+      }
+
+      window.scrollTo(0, 0);
+
+    }
+
+  </script>
+
+</body>
+
+</html>
