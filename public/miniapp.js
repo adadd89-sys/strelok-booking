@@ -16,8 +16,19 @@
   };
 
   function initData() {
-    return tg?.initData || "";
-  }
+  return tg?.initData || "";
+}
+
+function checkTelegramAuth() {
+  const data = initData();
+
+  alert(
+    "Проверка Telegram:\n" +
+    "WebApp найден: " + Boolean(tg) + "\n" +
+    "Данные авторизации получены: " + Boolean(data) + "\n" +
+    "Длина данных: " + data.length
+  );
+}
 
   async function api(path, options = {}) {
     const headers = {
