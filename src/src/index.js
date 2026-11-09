@@ -223,10 +223,138 @@ async function handleMessage(env, msg) {
       );
     }
 
-    return send(env, chatId, "✅ Запись принята! Ждём тебя на игре.", mainMenu);
+            return send(env, chatId, "✅ Запись принята! Ждём тебя на игре.", mainMenu);
+  }
+
+  if (current.state === "edit_count") {
+    const count = Number(text);
+
+    if (!Number.isInteger(count) || count < 1 || count > 100) {
+      return send(env, chatId, "Введи целое число от 1 до 100.");
+    }
+
+    const booking = await env.DB.prepare(
+      "SELECT * FROM bookings WHERE id=? AND telegram_id=? AND status='active'"
+    ).bind(data.bookingId, String(userId)).first();
+
+    if (!booking) {
+      await clearState(env, userId);
+      return send(env, chatId, "Активная запись не найдена.");
+    }
+
+    await env.DB.prepare(
+      "UPDATE bookings SET participants=?, updated_at=CURRENT_TIMESTAMP WHERE id=?"
+    ).bind(count, data.bookingId).run();
+
+    await env.DB.prepare(
+      "INSERT INTO booking_history (booking_id,action,old_data,new_data) VALUES (?,'updated',?,?)"
+    ).bind(
+      data.bookingId,
+      JSON.stringify({ participants: booking.participants }),
+      JSON.stringify({ participants: count })
+    ).run();
+
+    await clearState(env, userId);
+    return send(env, chatId, `✅ Количество участников изменено: ${count}.`, mainMenu);
+  }
+
+  if (current.state === "edit_phone") {
+    if (text.length < 5 || text.length > 30) {
+      return send(env, chatId, "Проверь номер телефона и введи его ещё раз.");
+    }
+
+    const booking = await env.DB.prepare(
+      "SELECT * FROM bookings WHERE id=? AND telegram_id=? AND status='active'"
+    ).bind(data.bookingId, String(userId)).first();
+
+    if (!booking) {
+      await clearState(env, userId);
+      return send(env, chatId, "Активная запись не найдена.");
+    }
+
+    await env.DB.prepare(
+      "UPDATE bookings SET phone=?, updated_at=CURRENT_TIMESTAMP WHERE id=?"
+    ).bind(text, data.bookingId).run();
+
+    await env.DB.prepare(
+      "INSERT INTO booking_history (booking_id,action,old_data,new_data) VALUES (?,'updated',?,?)"
+    ).bind(
+      data.bookingId,
+      JSON.stringify({ phone: booking.phone }),
+      JSON.stringify({ phone: text })
+    ).run();
+
+    await clearState(env, userId);
+    return send(env, chatId, "✅ Номер телефона успешно изменён.", mainMenu);
   }
 }
 
+async function handleCallback(env, query) {
+
+  if (current.state === "edit_count") {
+    const count = Number(text);
+
+    if (!Number.isInteger(count) || count < 1 || count > 100) {
+      return send(env, chatId, "Введи целое число от 1 до 100.");
+    }
+
+    const booking = await env.DB.prepare(
+      "SELECT * FROM bookings WHERE id=? AND telegram_id=? AND status='active'"
+    ).bind(data.bookingId, String(userId)).first();
+
+    if (!booking) {
+      await clearState(env, userId);
+      return send(env, chatId, "Активная запись не найдена.");
+    }
+
+    await env.DB.prepare(
+      "UPDATE bookings SET participants=?, updated_at=CURRENT_TIMESTAMP WHERE id=?"
+    ).bind(count, data.bookingId).run();
+
+    await env.DB.prepare(
+      "INSERT INTO booking_history (booking_id,action,old_data,new_data) VALUES (?,'updated',?,?)"
+    ).bind(
+      data.bookingId,
+      JSON.stringify({ participants: booking.participants }),
+      JSON.stringify({ participants: count })
+    ).run();
+
+    await clearState(env, userId);
+    return send(env, chatId, `✅ Количество участников изменено: ${count}.`, mainMenu);
+  }
+
+  if (current.state === "edit_phone") {
+    if (text.length < 5 || text.length > 30) {
+      return send(env, chatId, "Проверь номер телефона и введи его ещё раз.");
+    }
+
+    const booking = await env.DB.prepare(
+      "SELECT * FROM bookings WHERE id=? AND telegram_id=? AND status='active'"
+    ).bind(data.bookingId, String(userId)).first();
+
+    if (!booking) {
+      await clearState(env, userId);
+      return send(env, chatId, "Активная запись не найдена.");
+    }
+
+    await env.DB.prepare(
+      "UPDATE bookings SET phone=?, updated_at=CURRENT_TIMESTAMP WHERE id=?"
+    ).bind(text, data.bookingId).run();
+
+    await env.DB.prepare(
+      "INSERT INTO booking_history (booking_id,action,old_data,new_data) VALUES (?,'updated',?,?)"
+    ).bind(
+      data.bookingId,
+      JSON.stringify({ phone: booking.phone }),
+      JSON.stringify({ phone: text })
+    ).run();
+
+    await clearState(env, userId);
+    return send(env, chatId, "✅ Номер телефона успешно изменён.", mainMenu);
+  }
+}
+
+async function handleCallback(env, query) {
 async function handleCallback(env, query) {
   const chatId = query.message.chat.id;
   const userId = query.from.id;
