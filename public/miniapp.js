@@ -621,6 +621,7 @@ function checkTelegramAuth() {
         loadProfile();
         break;
       case "club":
+      case "contacts":
         loadClub();
         break;
       case "admin":
