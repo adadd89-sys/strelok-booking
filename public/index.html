@@ -314,6 +314,12 @@
           <small>Ваши записи и заявки</small>
         </button>
 
+        <button class="tile" onclick="showPage('gameFormats')">
+          <span class="emoji">🎮</span>
+          <strong>Описание игр</strong>
+          <small>Форматы игр и комплектация</small>
+        </button>
+
         <button class="tile" onclick="showPage('club')">
           <span class="emoji">🏴</span>
           <strong>О клубе</strong>
@@ -430,6 +436,13 @@
       <div class="card"><h3>Наши площадки</h3><div id="venuesList"><p class="muted">Загружаем площадки...</p></div><div id="venueDetails" hidden></div></div>
     </section>
 
+    <section id="gameFormats" class="page">
+      <button class="back" onclick="showPage('home')">← Главная</button>
+      <div class="section-title">🎮 Описание игр</div>
+      <div id="gameFormatsList"><div class="empty">Загружаем форматы игр...</div></div>
+      <div id="gameFormatDetails" class="card" hidden></div>
+    </section>
+
     <section id="gallery" class="page">
       <button class="back" onclick="showPage('home')">← Главная</button>
       <div class="section-title">📸 Галерея</div>
@@ -457,6 +470,7 @@
         <div class="muted">Загрузка данных...</div>
       </div>
       <div id="adminVenuesEditor" class="card"><h3>Площадки клуба</h3><div class="muted">Загрузка площадок...</div></div>
+      <div id="adminGameFormatsEditor" class="card"><h3>Описание форматов игр</h3><div class="muted">Загрузка...</div></div>
       <div id="adminOrders" class="card">
         <h3>Заявки на клиентские игры</h3>
         <div class="muted">Загрузка заявок...</div>
@@ -545,6 +559,6 @@
     ].join("-");
   </script>
 
-  <script src="/miniapp.js?v=20261110-10"></script>
+  <script src="/miniapp.js?v=20261110-11"></script>
 </body>
 </html>
