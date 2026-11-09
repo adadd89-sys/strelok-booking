@@ -1201,6 +1201,9 @@ export default {
       return Response.json(result);
     }
 
+    if (url.pathname.startsWith("/api/")) {
+  return miniAppApi(request, env, url);
+}
     if (url.pathname !== "/telegram") {
   return env.ASSETS.fetch(request);
 }
