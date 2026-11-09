@@ -343,6 +343,7 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
           ? `<p class="muted">Информация о клубе скоро появится.</p>`
           : ""}
       `;
+      await loadVenues();
 
     } catch (error) {
       console.error("loadClub:", error);
@@ -478,6 +479,7 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
       `;
 
       await loadAdminClubEditor();
+      await loadAdminVenues();
       await loadAdminOrders();
 
     } catch (error) {
