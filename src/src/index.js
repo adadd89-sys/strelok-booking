@@ -1092,8 +1092,8 @@ export default {
     }
 
     if (url.pathname !== "/telegram") {
-      return new Response("Strelok bot is running");
-    }
+  return env.ASSETS.fetch(request);
+}
 
     if (
       request.headers.get("X-Telegram-Bot-Api-Secret-Token") !==
