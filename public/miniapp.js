@@ -1,346 +1,548 @@
 
 (() => {
-  const tg = window.Telegram?.WebApp;
-  const initData = tg?.initData || "";
+  "use strict";
 
+  const tg = window.Telegram?.WebApp;
+  const API_BASE = "";
   const $ = (id) => document.getElementById(id);
 
-  function escapeHtml(value) {
-    return String(value ?? "").replace(/[&<>"']/g, (char) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;"
-    }[char]));
+  const state = {
+    games: [],
+    bookings: [],
+    profile: null,
+    club: null,
+    admin: false,
+    adminOrders: []
+  };
+
+  function initData() {
+    return tg?.initData || "";
   }
 
-  async function api(path) {
-    const response = await fetch(path, {
-      method: "GET",
-      headers: {
-        "X-Telegram-Init-Data": initData
-      }
+  async function api(path, options = {}) {
+    const headers = {
+      "Content-Type": "application/json",
+      "X-Telegram-Init-Data": initData(),
+      ...(options.headers || {})
+    };
+
+    const response = await fetch(API_BASE + path, {
+      ...options,
+      headers
     });
 
     const data = await response.json().catch(() => ({}));
 
-    if (!response.ok || data.ok === false) {
-      throw new Error(data.error || "Не удалось загрузить данные");
+    if (!response.ok || data.error) {
+      throw new Error(data.error || data.message || "Ошибка сервера");
     }
 
     return data;
   }
 
-  function setContent(pageId, html) {
-    const page = $(pageId);
-    if (!page) return;
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, char => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;"
+    })[char]);
+  }
 
-    page.querySelectorAll(".dynamic-content").forEach((element) => {
-      element.remove();
+  function showMessage(container, message, isError = false) {
+    if (!container) return;
+
+    container.textContent = message;
+    container.style.color = isError ? "#ff7777" : "#54c982";
+  }
+
+  function emptyMessage(message) {
+    return `<div class="empty">${escapeHtml(message)}</div>`;
+  }
+
+  function formatDate(date) {
+    if (!date) return "Дата не указана";
+
+    const parsed = new Date(date + "T00:00:00");
+
+    if (Number.isNaN(parsed.getTime())) return escapeHtml(date);
+
+    return parsed.toLocaleDateString("ru-RU", {
+      day: "numeric",
+      month: "long",
+      year: "numeric"
     });
-
-    const block = document.createElement("div");
-    block.className = "dynamic-content";
-    block.innerHTML = html;
-
-    page.appendChild(block);
   }
 
-  function loading(pageId, message = "Загружаем данные…") {
-    setContent(
-      pageId,
-      `<div class="info-card empty">${escapeHtml(message)}</div>`
-    );
+  function getTelegramUser() {
+    return tg?.initDataUnsafe?.user || null;
   }
 
-  function showError(pageId, error) {
-    setContent(
-      pageId,
-      `<div class="info-card empty">
-        ⚠️ ${escapeHtml(error.message || error)}
-        <br><br>
-        <button class="miniapp-retry"
-          onclick="window.StrelokMiniApp.reloadCurrent()">
-          Повторить
-        </button>
-      </div>`
-    );
+  function userName(user) {
+    if (!user) return "";
+
+    return [
+      user.first_name,
+      user.last_name
+    ].filter(Boolean).join(" ");
   }
 
   // ОТКРЫТЫЕ ИГРЫ
 
   async function loadGames() {
-    loading("games");
+    const container = $("gamesList");
+    if (!container) return;
+
+    container.innerHTML = emptyMessage("Загружаем открытые игры...");
 
     try {
       const data = await api("/api/games");
-      const games = Array.isArray(data.games) ? data.games : [];
+      state.games = Array.isArray(data.games) ? data.games : [];
 
-      if (!games.length) {
-        setContent(
-          "games",
-          `<div class="info-card empty">
-            Сейчас нет открытых игр. Загляни позже!
-          </div>`
-        );
+      if (!state.games.length) {
+        container.innerHTML = emptyMessage("Пока нет открытых игр. Загляни позже!");
         return;
       }
 
-      const html = games.map((game) => `
-        <article class="info-card game-card">
-          <h2>${escapeHtml(game.title || "Открытая игра")}</h2>
+      container.innerHTML = state.games.map(game => {
+        const id = Number(game.id);
+        const title = game.title || game.game_type || "Открытая игра";
+        const date = game.game_date || game.date;
+        const time = game.game_time || game.time || "";
+        const booked = Number(game.booked || 0);
+        const price = game.price ? `${escapeHtml(game.price)} ₽` : "Уточняется";
 
-          <p>
-            📅 ${escapeHtml(game.date || game.game_date || "Дата уточняется")}
-          </p>
-
-          <p>
-            🕒 ${escapeHtml(game.time || game.game_time || "")}
-          </p>
-
-          <p>
-            💰 ${escapeHtml(game.price || "Цена уточняется")}
-          </p>
-
-          <p>
-            👥 Уже записались:
-            <b>${escapeHtml(game.booked ?? 0)}</b>
-          </p>
-
-          ${
-            game.description
-              ? `<p>${escapeHtml(game.description)}</p>`
-              : ""
-          }
-        </article>
-      `).join("");
-
-      setContent("games", html);
+        return `
+          <div class="card">
+            <span class="status">● Запись открыта</span>
+            <h3>${escapeHtml(title)}</h3>
+            <p class="muted">📅 ${formatDate(date)}</p>
+            <p class="muted">🕒 ${escapeHtml(time || "Время уточняется")}</p>
+            <p class="muted">👥 Уже записалось: <b>${booked}</b></p>
+            <p class="muted">💰 Цена: <b class="orange">${price}</b></p>
+            ${game.description ? `<p class="muted">${escapeHtml(game.description)}</p>` : ""}
+            <button class="primary" data-book-game="${id}">Записаться</button>
+          </div>
+        `;
+      }).join("");
 
     } catch (error) {
-      showError("games", error);
+      console.error("loadGames:", error);
+      container.innerHTML = emptyMessage(
+        "Не удалось загрузить игры. Возможно, серверная часть ещё подключается."
+      );
+    }
+  }
+
+  async function bookGame(gameId) {
+    const game = state.games.find(item => Number(item.id) === gameId);
+
+    if (!game) {
+      alert("Игра не найдена. Обнови список.");
+      return;
+    }
+
+    const user = getTelegramUser();
+    const defaultName = userName(user);
+
+    const name = prompt("Как тебя записать?", defaultName);
+    if (!name || !name.trim()) return;
+
+    const phone = prompt("Укажи номер телефона:");
+    if (!phone || !phone.trim()) return;
+
+    const participantsText = prompt("Сколько человек записать?", "1");
+    if (participantsText === null) return;
+
+    const participants = Number(participantsText);
+
+    if (!Number.isInteger(participants) || participants < 1 || participants > 100) {
+      alert("Укажи корректное количество участников от 1 до 100.");
+      return;
+    }
+
+    try {
+      await api("/api/bookings", {
+        method: "POST",
+        body: JSON.stringify({
+          game_id: gameId,
+          organizer_name: name.trim(),
+          phone: phone.trim(),
+          participants
+        })
+      });
+
+      alert("Заявка на запись отправлена!");
+      await loadGames();
+      await loadBookings();
+
+    } catch (error) {
+      console.error("bookGame:", error);
+      alert(error.message || "Не удалось записаться. Попробуй позже.");
     }
   }
 
   // МОИ БРОНИРОВАНИЯ
 
   async function loadBookings() {
-    loading("bookings");
+    const container = $("bookingsList");
+    if (!container) return;
+
+    container.innerHTML = emptyMessage("Загружаем твои записи...");
 
     try {
       const data = await api("/api/bookings");
-      const bookings = Array.isArray(data.bookings)
-        ? data.bookings
-        : [];
+      state.bookings = Array.isArray(data.bookings) ? data.bookings : [];
 
-      if (!bookings.length) {
-        setContent(
-          "bookings",
-          `<div class="info-card empty">
-            У тебя пока нет активных записей.
-          </div>`
-        );
+      if (!state.bookings.length) {
+        container.innerHTML = emptyMessage("У тебя пока нет бронирований.");
         return;
       }
 
-      const html = bookings.map((booking) => `
-        <article class="info-card">
-          <h2>${escapeHtml(booking.title || "Игра")}</h2>
+      container.innerHTML = state.bookings.map(item => {
+        const status = item.status || "active";
+        const statusText = {
+          active: "Активная запись",
+          cancelled: "Отменена",
+          completed: "Завершена"
+        }[status] || status;
 
-          <p>
-            📅 ${escapeHtml(booking.date || booking.game_date || "")}
-          </p>
-
-          <p>
-            🕒 ${escapeHtml(booking.time || booking.game_time || "")}
-          </p>
-
-          <p>
-            👥 Участников:
-            <b>${escapeHtml(booking.participants)}</b>
-          </p>
-
-          <p>
-            Организатор:
-            ${escapeHtml(booking.organizer_name || "")}
-          </p>
-        </article>
-      `).join("");
-
-      setContent("bookings", html);
+        return `
+          <div class="card">
+            <span class="status">${escapeHtml(statusText)}</span>
+            <h3>${escapeHtml(item.title || item.game_title || "Игра")}</h3>
+            <p class="muted">📅 ${formatDate(item.game_date)}</p>
+            <p class="muted">🕒 ${escapeHtml(item.game_time || "")}</p>
+            <p class="muted">👥 Участников: ${Number(item.participants || 1)}</p>
+            ${status === "active" ? `
+              <button class="secondary" data-cancel-booking="${Number(item.id)}">
+                Отменить запись
+              </button>
+            ` : ""}
+          </div>
+        `;
+      }).join("");
 
     } catch (error) {
-      showError("bookings", error);
+      console.error("loadBookings:", error);
+      container.innerHTML = emptyMessage("Не удалось загрузить бронирования.");
+    }
+  }
+
+  async function cancelBooking(id) {
+    if (!confirm("Точно отменить запись?")) return;
+
+    try {
+      await api("/api/bookings/" + id, {
+        method: "DELETE"
+      });
+
+      alert("Запись отменена.");
+      await loadBookings();
+      await loadGames();
+
+    } catch (error) {
+      console.error("cancelBooking:", error);
+      alert(error.message || "Не удалось отменить запись.");
     }
   }
 
   // ПРОФИЛЬ
 
   async function loadProfile() {
-    loading("profile");
+    const container = $("profileInfo");
+    if (!container) return;
 
     try {
       const data = await api("/api/profile");
-      const user = data.user || data.profile || {};
+      const profile = data.user || data.profile || data;
+      state.profile = profile;
 
-      setContent(
-        "profile",
-        `<div class="info-card">
-          <p>
-            <b>${escapeHtml(
-              user.name || user.first_name || "Игрок"
-            )}</b>
-          </p>
+      const telegramUser = getTelegramUser();
 
-          ${
-            user.username
-              ? `<p>Telegram: @${escapeHtml(user.username)}</p>`
-              : ""
-          }
+      const name =
+        profile.first_name ||
+        profile.name ||
+        userName(telegramUser) ||
+        "Пользователь Telegram";
 
-          <p>
-            ID: ${escapeHtml(user.id || user.telegram_id || "")}
-          </p>
-        </div>`
-      );
+      const username =
+        profile.username ||
+        telegramUser?.username ||
+        "";
+
+      container.innerHTML = `
+        <h3>${escapeHtml(name)}</h3>
+        <p class="muted">Telegram ID: ${escapeHtml(profile.telegram_id || telegramUser?.id || "—")}</p>
+        ${username ? `<p class="muted">Username: @${escapeHtml(username)}</p>` : ""}
+        <p class="muted">Здесь будет отображаться информация о твоём профиле.</p>
+      `;
 
     } catch (error) {
-      showError("profile", error);
+      console.error("loadProfile:", error);
+      container.innerHTML = emptyMessage("Не удалось загрузить профиль.");
     }
   }
 
-  // ИНФОРМАЦИЯ О КЛУБЕ
+  // О КЛУБЕ
 
   async function loadClub() {
-    loading("club");
+    const container = $("clubInfo");
+    if (!container) return;
 
     try {
       const data = await api("/api/club");
       const club = data.club || data;
+      state.club = club;
 
-      const html = `
-        <div class="info-card">
-
-          ${
-            club.address
-              ? `<p><b>Адрес:</b><br>${escapeHtml(club.address)}</p>`
-              : ""
-          }
-
-          ${
-            club.contacts
-              ? `<p><b>Контакты:</b><br>${escapeHtml(club.contacts)}</p>`
-              : ""
-          }
-
-          ${
-            club.age_restrictions
-              ? `<p><b>Возрастные ограничения:</b><br>
-                  ${escapeHtml(club.age_restrictions)}</p>`
-              : ""
-          }
-
-          ${
-            club.rules
-              ? `<p><b>Правила:</b><br>${escapeHtml(club.rules)}</p>`
-              : ""
-          }
-
-          ${
-            !club.address &&
-            !club.contacts &&
-            !club.rules
-              ? "Информация пока не заполнена."
-              : ""
-          }
-
-        </div>
+      container.innerHTML = `
+        <h3>Клуб «Стрелок»</h3>
+        ${club.address ? `<p class="muted">📍 ${escapeHtml(club.address)}</p>` : ""}
+        ${club.contacts ? `<p class="muted">☎️ ${escapeHtml(club.contacts)}</p>` : ""}
+        ${club.age_restrictions ? `<p class="muted">🔞 ${escapeHtml(club.age_restrictions)}</p>` : ""}
+        ${club.rules ? `<p class="muted">📋 ${escapeHtml(club.rules)}</p>` : ""}
+        ${!club.address && !club.contacts && !club.rules
+          ? `<p class="muted">Информация о клубе скоро появится.</p>`
+          : ""}
       `;
 
-      setContent("club", html);
-
     } catch (error) {
-      showError("club", error);
+      console.error("loadClub:", error);
+      container.innerHTML = emptyMessage("Информация о клубе пока недоступна.");
     }
   }
 
-  // АДМИНИСТРИРОВАНИЕ
+  // ЗАКАЗ ИГРЫ
+
+  async function submitOrderRequest() {
+    const message = $("orderMessage");
+    const button = $("orderForm")?.querySelector('button[type="submit"]');
+
+    const payload = {
+      venue: $("orderVenue")?.value,
+      game_type: $("orderType")?.value,
+      game_date: $("orderDate")?.value,
+      game_time: $("orderTime")?.value,
+      participants: Number($("orderCount")?.value),
+      name: $("orderName")?.value.trim(),
+      phone: $("orderPhone")?.value.trim(),
+      comment: $("orderComment")?.value.trim()
+    };
+
+    if (
+      !payload.venue ||
+      !payload.game_type ||
+      !payload.game_date ||
+      !payload.game_time ||
+      !Number.isInteger(payload.participants) ||
+      payload.participants < 1 ||
+      !payload.name ||
+      !payload.phone
+    ) {
+      showMessage(message, "Заполни все обязательные поля.", true);
+      return;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (new Date(payload.game_date + "T00:00:00") < today) {
+      showMessage(message, "Нельзя выбрать прошедшую дату.", true);
+      return;
+    }
+
+    if (button) button.disabled = true;
+    showMessage(message, "Отправляем заявку...");
+
+    try {
+      await api("/api/order-requests", {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+
+      showMessage(
+        message,
+        "Заявка отправлена! Администратор свяжется с тобой для подтверждения."
+      );
+
+      $("orderForm").reset();
+      $("orderType").disabled = true;
+      $("orderType").innerHTML =
+        '<option value="">Сначала выбери площадку</option>';
+
+    } catch (error) {
+      console.error("submitOrderRequest:", error);
+      showMessage(message, error.message || "Не удалось отправить заявку.", true);
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
+  // АДМИНИСТРАТИВНЫЙ РАЗДЕЛ
 
   async function loadAdmin() {
-    loading("admin");
+    const info = $("adminInfo");
+    const orders = $("adminOrders");
+
+    if (!info) return;
 
     try {
       const data = await api("/api/admin");
 
-      if (!data.isAdmin) {
-        setContent(
-          "admin",
-          `<div class="info-card empty">
-            Раздел доступен только администраторам клуба.
-          </div>`
-        );
+      state.admin = Boolean(data.isAdmin);
+
+      if (!state.admin) {
+        info.innerHTML = emptyMessage("У тебя нет доступа к администрированию.");
+        if (orders) orders.classList.add("hidden");
+
+        $("adminHome")?.classList.add("hidden");
         return;
       }
 
-      setContent(
-        "admin",
-        `<div class="info-card">
-          <h2>Доступ администратора подтверждён</h2>
-          <p>
-            Управление играми пока выполняется через Telegram-бота.
-          </p>
-        </div>`
-      );
+      $("adminHome")?.classList.remove("hidden");
+
+      info.innerHTML = `
+        <span class="status">● Доступ разрешён</span>
+        <h3>Панель администратора</h3>
+        <p class="muted">Административный доступ подтверждён.</p>
+      `;
+
+      await loadAdminOrders();
 
     } catch (error) {
-      showError("admin", error);
+      console.error("loadAdmin:", error);
+      info.innerHTML = emptyMessage("Не удалось проверить права администратора.");
     }
   }
 
-  // ЗАГРУЗЧИКИ РАЗДЕЛОВ
+  async function loadAdminOrders() {
+    const container = $("adminOrders");
+    if (!container || !state.admin) return;
 
-  const loaders = {
-    games: loadGames,
-    bookings: loadBookings,
-    profile: loadProfile,
-    club: loadClub,
-    admin: loadAdmin
-  };
+    try {
+      const data = await api("/api/admin/orders");
+      state.adminOrders = Array.isArray(data.orders) ? data.orders : [];
 
-  let currentPage = "home";
-
-  const originalShowPage = window.showPage;
-
-  window.showPage = function(page, button) {
-    currentPage = page;
-
-    if (typeof originalShowPage === "function") {
-      originalShowPage(page, button);
-    }
-
-    if (loaders[page]) {
-      loaders[page]();
-    }
-  };
-
-  // КНОПКА ПОВТОРНОЙ ЗАГРУЗКИ
-
-  window.StrelokMiniApp = {
-    reloadCurrent() {
-      if (loaders[currentPage]) {
-        loaders[currentPage]();
+      if (!state.adminOrders.length) {
+        container.innerHTML = `
+          <h3>Заявки на клиентские игры</h3>
+          ${emptyMessage("Новых заявок пока нет.")}
+        `;
+        return;
       }
+
+      container.innerHTML = `
+        <h3>Заявки на клиентские игры</h3>
+        ${state.adminOrders.map(order => `
+          <div class="card">
+            <span class="status">${escapeHtml(order.status || "Новая")}</span>
+            <h3>${escapeHtml(order.venue)} — ${escapeHtml(order.game_type)}</h3>
+            <p class="muted">📅 ${formatDate(order.game_date)}</p>
+            <p class="muted">🕒 ${escapeHtml(order.game_time || "")}</p>
+            <p class="muted">👥 Участников: ${Number(order.participants || 0)}</p>
+            <p class="muted">👤 ${escapeHtml(order.name)}</p>
+            <p class="muted">☎️ ${escapeHtml(order.phone)}</p>
+            ${order.comment ? `<p class="muted">Комментарий: ${escapeHtml(order.comment)}</p>` : ""}
+            <p class="muted">ID заявки: ${Number(order.id)}</p>
+            <button class="secondary" data-order-status="${Number(order.id)}" data-status="Связались">
+              Связались
+            </button>
+            <button class="secondary" data-order-status="${Number(order.id)}" data-status="Подтверждена">
+              Подтвердить
+            </button>
+            <button class="secondary" data-order-status="${Number(order.id)}" data-status="Отклонена">
+              Отклонить
+            </button>
+          </div>
+        `).join("")}
+      `;
+
+    } catch (error) {
+      console.error("loadAdminOrders:", error);
+      container.innerHTML = `
+        <h3>Заявки на клиентские игры</h3>
+        ${emptyMessage("Не удалось загрузить заявки.")}
+      `;
+    }
+  }
+
+  async function updateOrderStatus(id, status) {
+    if (!confirm("Изменить статус заявки на «" + status + "»?")) return;
+
+    try {
+      await api("/api/admin/orders/" + id, {
+        method: "PATCH",
+        body: JSON.stringify({ status })
+      });
+
+      alert("Статус заявки обновлён.");
+      await loadAdminOrders();
+
+    } catch (error) {
+      console.error("updateOrderStatus:", error);
+      alert(error.message || "Не удалось изменить статус.");
+    }
+  }
+
+  // ПЕРЕКЛЮЧЕНИЕ РАЗДЕЛОВ
+
+  window.loadMiniAppPage = function(page) {
+    switch (page) {
+      case "games":
+        loadGames();
+        break;
+      case "bookings":
+        loadBookings();
+        break;
+      case "profile":
+        loadProfile();
+        break;
+      case "club":
+        loadClub();
+        break;
+      case "admin":
+        loadAdmin();
+        break;
     }
   };
 
-  // НАСТРОЙКИ TELEGRAM MINI APP
+  // ОБРАБОТЧИКИ КНОПОК
+
+  document.addEventListener("click", event => {
+    const bookButton = event.target.closest("[data-book-game]");
+    if (bookButton) {
+      bookGame(Number(bookButton.dataset.bookGame));
+      return;
+    }
+
+    const cancelButton = event.target.closest("[data-cancel-booking]");
+    if (cancelButton) {
+      cancelBooking(Number(cancelButton.dataset.cancelBooking));
+      return;
+    }
+
+    const statusButton = event.target.closest("[data-order-status]");
+    if (statusButton) {
+      updateOrderStatus(
+        Number(statusButton.dataset.orderStatus),
+        statusButton.dataset.status
+      );
+    }
+  });
+
+  window.submitOrderRequest = submitOrderRequest;
+
+  // СТАРТ
 
   if (tg) {
     tg.ready();
     tg.expand();
-    tg.setHeaderColor("#101010");
-    tg.setBackgroundColor("#101010");
+
+    try {
+      tg.setHeaderColor("#111315");
+      tg.setBackgroundColor("#111315");
+    } catch (error) {}
   }
 
 })();
