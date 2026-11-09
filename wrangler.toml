@@ -1,5 +1,5 @@
 name = "strelok-booking1"
-main = "src/index.js"
+main = "src/src/index.js"
 compatibility_date = "2026-11-09"
 
 [[d1_databases]]
