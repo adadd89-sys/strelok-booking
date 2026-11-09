@@ -1,6 +1,10 @@
+
 name = "strelok-booking1"
 main = "src/src/index.js"
 compatibility_date = "2026-11-09"
+
+[vars]
+OWNER_ID = "752535421"
 
 [[d1_databases]]
 binding = "DB"
