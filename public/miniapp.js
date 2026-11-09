@@ -310,7 +310,7 @@ function checkTelegramAuth() {
       const club = data.club || data;
       state.club = club;
 
-      window.CLUB_TELEGRAM_USERNAME = String(club.telegram || "").replace(/^@/, "").replace(/^https?:\\/\\/t\\.me\\//, "");
+      window.CLUB_TELEGRAM_USERNAME = String(club.telegram || "").trim().replace(/^@/, "").replace("https://t.me/", "").replace("http://t.me/", "");
       const contactsPage = $("contacts");
       const contactCard = contactsPage?.querySelector(".card");
       if (contactCard) {
