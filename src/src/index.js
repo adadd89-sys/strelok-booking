@@ -1064,6 +1064,116 @@ async function handleChannelPost(env, post) {
   }
 }
 
+
+async function verifyTelegramInitData(request, env) {
+  const initData = request.headers.get("X-Telegram-Init-Data") || "";
+
+  if (!initData || !env.TELEGRAM_BOT_TOKEN) return null;
+
+  try {
+    const params = new URLSearchParams(initData);
+    const receivedHash = params.get("hash");
+    const authDate = Number(params.get("auth_date"));
+
+    if (!receivedHash || !Number.isFinite(authDate)) return null;
+    if (Math.abs(Date.now() / 1000 - authDate) > 86400) return null;
+
+    params.delete("hash");
+
+    const dataCheckString = [...params.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => `${key}=${value}`)
+      .join("\n");
+
+    const encoder = new TextEncoder();
+
+    const botKey = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode(env.TELEGRAM_BOT_TOKEN),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+
+    const secretKey = await crypto.subtle.sign(
+      "HMAC",
+      botKey,
+      encoder.encode("WebAppData")
+    );
+
+    const dataKey = await crypto.subtle.importKey(
+      "raw",
+      secretKey,
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+
+    const calculated = new Uint8Array(
+      await crypto.subtle.sign(
+        "HMAC",
+        dataKey,
+        encoder.encode(dataCheckString)
+      )
+    );
+
+    const calculatedHash = [...calculated]
+      .map(byte => byte.toString(16).padStart(2, "0"))
+      .join("");
+
+    if (calculatedHash.length !== receivedHash.length) return null;
+
+    let difference = 0;
+
+    for (let i = 0; i < calculatedHash.length; i++) {
+      difference |= calculatedHash.charCodeAt(i) ^
+        receivedHash.toLowerCase().charCodeAt(i);
+    }
+
+    if (difference !== 0) return null;
+
+    const userText = params.get("user");
+    if (!userText) return null;
+
+    const user = JSON.parse(userText);
+
+    return user && user.id ? user : null;
+  } catch (error) {
+    console.error("Mini App authorization error:", error);
+    return null;
+  }
+}
+
+function miniJson(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store"
+    }
+  });
+}
+
+async function ensureMiniAppTables(env) {
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS order_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      telegram_id TEXT NOT NULL,
+      venue TEXT NOT NULL,
+      game_type TEXT NOT NULL,
+      game_date TEXT NOT NULL,
+      game_time TEXT NOT NULL,
+      participants INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      phone TEXT NOT NULL,
+      comment TEXT DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'Новая',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
