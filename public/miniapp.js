@@ -606,6 +606,16 @@ function checkTelegramAuth() {
   if (tg) {
     tg.ready();
     tg.expand();
+    api("/api/admin")
+  .then(data => {
+    if (data.isAdmin) {
+      const adminButton = $("adminHome");
+      if (adminButton) {
+        adminButton.style.display = "flex";
+      }
+    }
+  })
+  .catch(error => console.error("Проверка администратора:", error));
 
     try {
       tg.setHeaderColor("#111315");
