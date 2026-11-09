@@ -331,7 +331,7 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
         ${club.telegram ? `<p class="muted">✈️ Telegram: ${escapeHtml(club.telegram)}</p>` : ""}
         ${club.vk ? `<p class="muted">🔵 ВКонтакте: ${escapeHtml(club.vk)}</p>` : ""}
         ${club.age_restrictions ? `<p class="muted">🔞 ${escapeHtml(club.age_restrictions)}</p>` : ""}
-        ${club.rules ? `<p class="muted">📋 ${escapeHtml(club.rules)}</p>` : ""}
+        ${club.rules ? `<p class="muted">📋 ${formatMultiline(club.rules)}</p>` : ""}
         ${!club.address && !club.contacts && !club.rules && !club.telegram && !club.vk
           ? `<p class="muted">Информация о клубе скоро появится.</p>`
           : ""}
