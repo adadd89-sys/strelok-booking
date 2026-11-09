@@ -555,7 +555,8 @@ function checkTelegramAuth() {
 
   // ОБРАБОТЧИКИ КНОПОК
 
-  const galleryButton = event.target.closest("#checkGalleryChannel");
+  document.addEventListener("click", async event => {
+    const galleryButton = event.target.closest("#checkGalleryChannel");
     if (galleryButton) {
       const result = $("galleryCheckResult");
       galleryButton.disabled = true;
@@ -576,7 +577,7 @@ function checkTelegramAuth() {
       }
       return;
     }
-  document.addEventListener("click", event => {
+
     const bookButton = event.target.closest("[data-book-game]");
     if (bookButton) {
       bookGame(Number(bookButton.dataset.bookGame));
