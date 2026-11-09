@@ -94,6 +94,65 @@
     ].filter(Boolean).join(" ");
   }
 
+  // ОПИСАНИЕ ФОРМАТОВ ИГР
+  const gameFormatNames = {airsoft:"Страйкбол",paintball:"Пейнтбол",reball:"Ребол",lasertag:"Лазертаг"};
+  let gameFormats = [];
+  let activeGameFormat = null;
+
+  async function loadGameFormats() {
+    const list = $("gameFormatsList");
+    if (!list) return;
+    try {
+      const data = await api("/api/game-formats");
+      gameFormats = Array.isArray(data.formats) ? data.formats : [];
+      list.hidden = false;
+      list.innerHTML = gameFormats.map(f => `<button class="secondary" style="width:100%;text-align:left" data-open-game-format="${escapeHtml(f.slug)}">🎮 <b>${escapeHtml(f.name)}</b><span class="muted" style="display:block">Описание и комплект участника</span></button>`).join("");
+      if (activeGameFormat) renderGameFormat(activeGameFormat);
+    } catch (e) {
+      list.innerHTML = emptyMessage("Не удалось загрузить описание игр.");
+    }
+  }
+
+  function renderGameFormat(slug) {
+    const item = gameFormats.find(x => x.slug === slug);
+    const box = $("gameFormatDetails");
+    const list = $("gameFormatsList");
+    if (!item || !box || !list) return;
+    activeGameFormat = slug;
+    list.hidden = true;
+    box.hidden = false;
+    box.innerHTML = `<button class="back" type="button" data-game-formats-back>← Все форматы</button><h3>🎮 ${escapeHtml(item.name)}</h3><h4>Об игре</h4><div class="muted">${item.description ? formatMultiline(item.description) : "Описание пока не добавлено."}</div><h4 style="margin-top:20px">Что выдаём перед игрой</h4><div class="muted">${item.equipment ? formatMultiline(item.equipment) : "Информация о комплекте пока не добавлена."}</div>`;
+  }
+
+  async function loadAdminGameFormats() {
+    const box = $("adminGameFormatsEditor");
+    if (!box || !state.admin) return;
+    try {
+      const data = await api("/api/admin/game-formats");
+      box.innerHTML = "<h3>Описание форматов игр</h3>" + (data.formats || []).map(f => `<form data-game-format-form="${escapeHtml(f.slug)}"><h4>${escapeHtml(f.name)}</h4><div class="field"><label>Описание игры</label><textarea name="description" rows="5" maxlength="5000" placeholder="Расскажи, как проходит игра...">${escapeHtml(f.description || "")}</textarea></div><div class="field"><label>Что выдаём участникам перед игрой</label><textarea name="equipment" rows="4" maxlength="5000" placeholder="Перечисли оборудование, экипировку и защиту...">${escapeHtml(f.equipment || "")}</textarea></div><button class="primary" type="submit">Сохранить</button><p class="muted" id="game-format-msg-${escapeHtml(f.slug)}"></p></form><hr>`).join("");
+    } catch (e) {
+      box.innerHTML = emptyMessage("Не удалось загрузить форматы игр для редактирования: " + (e.message || ""));
+    }
+  }
+
+  async function saveGameFormat(event) {
+    event.preventDefault();
+    const form = event.target;
+    const slug = form.dataset.gameFormatForm;
+    const message = $("game-format-msg-" + slug);
+    const button = form.querySelector('button[type="submit"]');
+    if (button) button.disabled = true;
+    try {
+      await api("/api/admin/game-formats/" + encodeURIComponent(slug), {method:"PUT",body:JSON.stringify({description:form.elements.description.value,equipment:form.elements.equipment.value})});
+      showMessage(message, "Сохранено.");
+      await loadGameFormats();
+    } catch (e) {
+      showMessage(message, e.message || "Не удалось сохранить.", true);
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
   // ОТКРЫТЫЕ ИГРЫ
 
   async function loadGames() {
@@ -473,6 +532,7 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
 
       await loadAdminClubEditor();
       await loadAdminVenues();
+      await loadAdminGameFormats();
       await loadAdminOrders();
 
     } catch (error) {
@@ -615,6 +675,9 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
       case "games":
         loadGames();
         break;
+      case "gameFormats":
+        loadGameFormats();
+        break;
       case "bookings":
         loadBookings();
         break;
@@ -636,10 +699,13 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
   document.addEventListener("submit", event => {
     if (event.target?.id === "clubInfoForm") saveClubInfo(event);
     if (event.target?.matches("[data-venue-form]")) saveVenue(event);
+    if (event.target?.matches("[data-game-format-form]")) saveGameFormat(event);
   });
 
   document.addEventListener("change",e=>{const i=e.target.closest("[data-venue-upload]");if(i)uploadVenuePhotos(i);});
   document.addEventListener("click", async event => {
+    const gf=event.target.closest("[data-open-game-format]");if(gf){renderGameFormat(gf.dataset.openGameFormat);return;}
+    if(event.target.closest("[data-game-formats-back]")){activeGameFormat=null;$("gameFormatDetails").hidden=true;$("gameFormatsList").hidden=false;return;}
     const o=event.target.closest("[data-open-venue]");if(o){renderVenueDetails(o.dataset.openVenue);return;}
     if(event.target.closest("[data-venues-back]")){state.activeVenue=null;$("venueDetails").hidden=true;$("venuesList").hidden=false;return;}
     const del=event.target.closest("[data-delete-venue-photo]");if(del){try{await api("/api/admin/venues/photo/"+del.dataset.deleteVenuePhoto,{method:"DELETE"});await loadAdminVenues();await loadVenues();}catch(e){alert(e.message);}return;}
