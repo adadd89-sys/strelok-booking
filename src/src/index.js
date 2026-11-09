@@ -1377,13 +1377,33 @@ if (!phone) {
         "Глубокое озеро": ["страйкбол", "пейнтбол", "лазертаг"]
       };
 
-      if (!allowed[venue] || !allowed[venue].includes(gameType) ||
-          !/^\d{4}-\d{2}-\d{2}$/.test(gameDate) ||
-          !/^\d{2}:\d{2}$/.test(gameTime) ||
-          !Number.isInteger(participants) || participants < 1 ||
-          participants > 100 || !name || !phone) {
-        return miniJson({ error: "Проверьте заполнение формы" }, 400);
-      }
+      if (!allowed[venue]) {
+  return miniJson({ error: "Не выбрана или неверно указана площадка" }, 400);
+}
+
+if (!allowed[venue].includes(gameType)) {
+  return miniJson({ error: "Не выбран или неверно указан тип игры" }, 400);
+}
+
+if (!/^\d{4}-\d{2}-\d{2}$/.test(gameDate)) {
+  return miniJson({ error: "Неверно указана дата игры" }, 400);
+}
+
+if (!/^\d{2}:\d{2}$/.test(gameTime)) {
+  return miniJson({ error: "Неверно указано время игры" }, 400);
+}
+
+if (!Number.isInteger(participants) || participants < 1 || participants > 100) {
+  return miniJson({ error: "Количество участников должно быть от 1 до 100" }, 400);
+}
+
+if (!name) {
+  return miniJson({ error: "Не указано имя" }, 400);
+}
+
+if (!phone) {
+  return miniJson({ error: "Не указан телефон" }, 400);
+}
 
       const result = await env.DB.prepare(`
         INSERT INTO order_requests
