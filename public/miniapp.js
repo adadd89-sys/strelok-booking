@@ -310,13 +310,30 @@ function checkTelegramAuth() {
       const club = data.club || data;
       state.club = club;
 
+      window.CLUB_TELEGRAM_USERNAME = String(club.telegram || "").replace(/^@/, "").replace(/^https?:\\/\\/t\\.me\\//, "");
+      const contactsPage = $("contacts");
+      const contactCard = contactsPage?.querySelector(".card");
+      if (contactCard) {
+        contactCard.innerHTML = `
+          <h3>Связаться с клубом «Стрелок»</h3>
+          <p class="muted">По вопросам игр, бронирования и организации мероприятий.</p>
+          ${club.contacts ? `<p class="muted">☎️ ${escapeHtml(club.contacts)}</p>` : ""}
+          ${club.telegram ? `<p class="muted">✈️ <a href="https://t.me/${escapeHtml(window.CLUB_TELEGRAM_USERNAME)}" target="_blank" rel="noopener">Telegram</a></p>` : ""}
+          ${club.vk ? `<p class="muted">🔵 <a href="${escapeHtml(club.vk)}" target="_blank" rel="noopener">ВКонтакте</a></p>` : ""}
+          ${club.address ? `<p class="muted">📍 ${escapeHtml(club.address)}</p>` : ""}
+          ${!club.contacts && !club.telegram && !club.vk ? `<p class="muted">Контактная информация скоро появится.</p>` : ""}
+        `;
+      }
+
       container.innerHTML = `
         <h3>Клуб «Стрелок»</h3>
         ${club.address ? `<p class="muted">📍 ${escapeHtml(club.address)}</p>` : ""}
         ${club.contacts ? `<p class="muted">☎️ ${escapeHtml(club.contacts)}</p>` : ""}
+        ${club.telegram ? `<p class="muted">✈️ Telegram: ${escapeHtml(club.telegram)}</p>` : ""}
+        ${club.vk ? `<p class="muted">🔵 ВКонтакте: ${escapeHtml(club.vk)}</p>` : ""}
         ${club.age_restrictions ? `<p class="muted">🔞 ${escapeHtml(club.age_restrictions)}</p>` : ""}
         ${club.rules ? `<p class="muted">📋 ${escapeHtml(club.rules)}</p>` : ""}
-        ${!club.address && !club.contacts && !club.rules
+        ${!club.address && !club.contacts && !club.rules && !club.telegram && !club.vk
           ? `<p class="muted">Информация о клубе скоро появится.</p>`
           : ""}
       `;
@@ -454,11 +471,70 @@ function checkTelegramAuth() {
         <p id="galleryCheckResult" class="muted"></p>
       `;
 
+      await loadAdminClubEditor();
       await loadAdminOrders();
 
     } catch (error) {
       console.error("loadAdmin:", error);
       info.innerHTML = emptyMessage("Не удалось проверить права администратора.");
+    }
+  }
+
+  async function loadAdminClubEditor() {
+    const container = $("adminClubEditor");
+    if (!container || !state.admin) return;
+
+    try {
+      const data = await api("/api/club");
+      const club = data.club || {};
+      container.innerHTML = `
+        <h3>Редактирование информации о клубе</h3>
+        <form id="clubInfoForm">
+          <div class="field"><label for="clubContacts">Телефон и другие контакты</label><input id="clubContacts" type="text" maxlength="500" value="${escapeHtml(club.contacts || "")}" placeholder="+7..."></div>
+          <div class="field"><label for="clubTelegram">Telegram (ссылка или @username)</label><input id="clubTelegram" type="text" maxlength="200" value="${escapeHtml(club.telegram || "")}" placeholder="@username или https://t.me/username"></div>
+          <div class="field"><label for="clubVk">ВКонтакте (ссылка)</label><input id="clubVk" type="url" maxlength="500" value="${escapeHtml(club.vk || "")}" placeholder="https://vk.com/..."></div>
+          <div class="field"><label for="clubAddress">Адрес клуба</label><textarea id="clubAddress" rows="2" maxlength="1000">${escapeHtml(club.address || "")}</textarea></div>
+          <div class="field"><label for="clubRules">Правила</label><textarea id="clubRules" rows="5" maxlength="5000">${escapeHtml(club.rules || "")}</textarea></div>
+          <div class="field"><label for="clubAgeRestrictions">Возрастные ограничения</label><textarea id="clubAgeRestrictions" rows="2" maxlength="1000">${escapeHtml(club.age_restrictions || "")}</textarea></div>
+          <button class="primary" type="submit">Сохранить изменения</button>
+          <p id="clubInfoMessage" class="muted"></p>
+        </form>
+      `;
+    } catch (error) {
+      console.error("loadAdminClubEditor:", error);
+      container.innerHTML = emptyMessage("Не удалось загрузить информацию клуба.");
+    }
+  }
+
+  async function saveClubInfo(event) {
+    event.preventDefault();
+    const form = $("clubInfoForm");
+    const button = form?.querySelector('button[type="submit"]');
+    const message = $("clubInfoMessage");
+    if (!form || !state.admin) return;
+
+    const payload = {
+      contacts: $("clubContacts").value.trim(),
+      telegram: $("clubTelegram").value.trim(),
+      vk: $("clubVk").value.trim(),
+      address: $("clubAddress").value.trim(),
+      rules: $("clubRules").value.trim(),
+      age_restrictions: $("clubAgeRestrictions").value.trim()
+    };
+
+    if (button) button.disabled = true;
+    showMessage(message, "Сохраняем изменения...");
+    try {
+      await api("/api/admin/club", {
+        method: "PUT",
+        body: JSON.stringify(payload)
+      });
+      showMessage(message, "Изменения сохранены.");
+      await loadClub();
+    } catch (error) {
+      showMessage(message, error.message || "Не удалось сохранить изменения.", true);
+    } finally {
+      if (button) button.disabled = false;
     }
   }
 
@@ -554,6 +630,10 @@ function checkTelegramAuth() {
   };
 
   // ОБРАБОТЧИКИ КНОПОК
+
+  document.addEventListener("submit", event => {
+    if (event.target?.id === "clubInfoForm") saveClubInfo(event);
+  });
 
   document.addEventListener("click", async event => {
     const galleryButton = event.target.closest("#checkGalleryChannel");
