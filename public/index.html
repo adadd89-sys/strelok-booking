@@ -1,707 +1,550 @@
+
 <!DOCTYPE html>
-
 <html lang="ru">
-
 <head>
-
   <meta charset="UTF-8">
-
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-
-  <meta name="theme-color" content="#101010">
-
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#111315">
   <title>Стрелок | Бронирование игр</title>
 
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
   <style>
-
-    * {
-
-      box-sizing: border-box;
-
-      margin: 0;
-
-      padding: 0;
-
+    :root {
+      color-scheme: dark;
+      --bg: #111315;
+      --panel: #1b1e21;
+      --panel2: #24282c;
+      --orange: #ff7417;
+      --text: #f5f5f5;
+      --muted: #9b9fa4;
+      --line: #30353a;
+      --green: #54c982;
     }
+
+    * { box-sizing: border-box; }
 
     body {
-
-      background: #101010;
-
-      color: #fff;
-
-      font-family: Arial, sans-serif;
-
-      padding-bottom: 100px;
-
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding-bottom: 90px;
     }
 
-    :root {
+    button, input, textarea, select {
+      font: inherit;
+    }
 
-      --orange: #ff8500;
+    button { cursor: pointer; }
 
-      --card: #1b1b1b;
-
-      --muted: #999;
-
+    .app {
+      max-width: 650px;
+      margin: auto;
+      padding: 18px 16px;
     }
 
     .header {
-
-      padding: 25px 20px 10px;
-
       display: flex;
-
       align-items: center;
-
       justify-content: space-between;
-
+      margin-bottom: 22px;
     }
 
     .logo {
-
-      font-size: 30px;
-
+      font-size: 25px;
       font-weight: 900;
-
       letter-spacing: 2px;
-
     }
 
-    .logo span {
+    .logo span { color: var(--orange); }
 
+    .tag {
       color: var(--orange);
-
-    }
-
-    .subtitle {
-
-      color: var(--orange);
-
+      border: 1px solid #75401e;
+      border-radius: 20px;
+      padding: 6px 10px;
       font-size: 11px;
-
-      font-weight: bold;
-
-      margin-top: 4px;
-
-      letter-spacing: 1px;
-
+      font-weight: 700;
     }
 
     .hero {
-
-      margin: 15px;
-
-      height: 240px;
-
+      min-height: 185px;
       border-radius: 18px;
-
+      padding: 24px 20px;
       background:
-
-        linear-gradient(90deg, rgba(0,0,0,.9), rgba(0,0,0,.15)),
-
-        url("https://images.unsplash.com/photo-1519608487953-e999c86e7455?w=1000")
-
-        center/cover;
-
+        linear-gradient(90deg, rgba(0,0,0,.88), rgba(0,0,0,.25)),
+        linear-gradient(135deg, #343b3f, #171a1d 65%, #633515);
       display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      margin-bottom: 24px;
+      border: 1px solid #393d40;
+    }
 
-      align-items: center;
-
-      padding: 20px;
-
-      border: 1px solid #444;
-
+    .hero small {
+      color: var(--orange);
+      font-weight: 800;
+      letter-spacing: 2px;
     }
 
     .hero h1 {
-
-      font-size: 32px;
-
-      line-height: 1.15;
-
-      text-transform: uppercase;
-
+      font-size: 30px;
+      line-height: 1.05;
+      margin: 9px 0;
       font-weight: 900;
-
-      max-width: 280px;
-
     }
 
-    .hero h1 span {
-
-      color: var(--orange);
-
+    .hero p {
+      color: #c6c6c6;
+      margin: 0;
+      font-size: 13px;
     }
 
     .section-title {
-
-      margin: 25px 18px 13px;
-
-      font-size: 20px;
-
-      font-weight: bold;
-
-    }
-
-    .main-card {
-
-      margin: 0 15px 14px;
-
-      min-height: 125px;
-
-      padding: 20px;
-
-      border-radius: 17px;
-
-      border: 1px solid #444;
-
-      background: linear-gradient(120deg, #292929, #151515);
-
-      display: flex;
-
-      align-items: center;
-
-      gap: 17px;
-
-      cursor: pointer;
-
-    }
-
-    .main-card:active,
-
-    .small-card:active {
-
-      transform: scale(.98);
-
-    }
-
-    .main-icon {
-
-      font-size: 42px;
-
-      color: var(--orange);
-
-      width: 65px;
-
-      text-align: center;
-
-    }
-
-    .card-content {
-
-      flex: 1;
-
-    }
-
-    .card-content h2 {
-
       font-size: 19px;
-
-      margin-bottom: 7px;
-
+      font-weight: 800;
+      margin: 24px 0 13px;
     }
 
-    .card-content p {
-
-      color: var(--muted);
-
-      font-size: 13px;
-
-      line-height: 1.4;
-
-    }
-
-    .arrow {
-
-      color: var(--orange);
-
-      font-size: 30px;
-
-    }
-
-    .small-grid {
-
+    .grid {
       display: grid;
-
-      grid-template-columns: 1fr 1fr;
-
-      gap: 12px;
-
-      margin: 0 15px;
-
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 11px;
     }
 
-    .small-card {
-
-      min-height: 145px;
-
-      background: var(--card);
-
-      border: 1px solid #444;
-
-      border-radius: 17px;
-
-      padding: 16px;
-
-      cursor: pointer;
-
-    }
-
-    .small-card .main-icon {
-
-      text-align: left;
-
-      display: block;
-
-      margin-bottom: 12px;
-
-    }
-
-    .small-card h3 {
-
-      font-size: 16px;
-
-      margin-bottom: 7px;
-
-    }
-
-    .small-card p {
-
-      color: var(--muted);
-
-      font-size: 12px;
-
-      line-height: 1.4;
-
-    }
-
-    .page {
-
-      display: none;
-
-      padding: 20px 15px;
-
-    }
-
-    .page.active {
-
-      display: block;
-
-    }
-
-    .page h1 {
-
-      font-size: 25px;
-
-      margin-bottom: 20px;
-
-    }
-
-    .info-card {
-
-      background: var(--card);
-
-      padding: 18px;
-
-      border: 1px solid #444;
-
+    .tile {
+      background: var(--panel);
+      border: 1px solid var(--line);
       border-radius: 15px;
+      padding: 17px 14px;
+      min-height: 115px;
+      text-align: left;
+      color: var(--text);
+    }
 
+    .tile:active, .primary:active {
+      transform: scale(.98);
+    }
+
+    .tile .emoji {
+      font-size: 25px;
+      display: block;
       margin-bottom: 12px;
-
-      color: #ddd;
-
-      line-height: 1.5;
-
     }
 
-    .bottom-nav {
-
-      position: fixed;
-
-      bottom: 0;
-
-      left: 0;
-
-      right: 0;
-
-      height: 75px;
-
-      background: #191919;
-
-      border-top: 1px solid #444;
-
-      display: flex;
-
-      justify-content: space-around;
-
-      align-items: center;
-
-      z-index: 10;
-
-      padding-bottom: env(safe-area-inset-bottom);
-
+    .tile strong {
+      display: block;
+      font-size: 14px;
     }
 
-    .nav-item {
-
-      background: none;
-
-      border: none;
-
-      color: #888;
-
+    .tile small {
+      display: block;
+      color: var(--muted);
+      margin-top: 5px;
       font-size: 11px;
+    }
 
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+
+    .card h3 {
+      margin: 0 0 10px;
+      font-size: 17px;
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .orange { color: var(--orange); }
+
+    .primary {
+      background: var(--orange);
+      border: 0;
+      color: #171717;
+      font-weight: 800;
+      border-radius: 11px;
+      padding: 14px 16px;
+      width: 100%;
+      margin-top: 12px;
+    }
+
+    .secondary {
+      background: var(--panel2);
+      border: 1px solid var(--line);
+      color: var(--text);
+      border-radius: 11px;
+      padding: 13px;
+      width: 100%;
+      margin-top: 9px;
+    }
+
+    .field {
+      margin: 13px 0;
+    }
+
+    .field label {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 7px;
+    }
+
+    .field input, .field textarea, .field select {
+      width: 100%;
+      background: #101214;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: white;
+      padding: 13px;
+      outline: none;
+    }
+
+    .field textarea {
+      min-height: 85px;
+      resize: vertical;
+    }
+
+    .field input:focus, .field textarea:focus, .field select:focus {
+      border-color: var(--orange);
+    }
+
+    .page { display: none; }
+    .page.active { display: block; }
+
+    .nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #17191b;
+      border-top: 1px solid var(--line);
       display: flex;
-
-      flex-direction: column;
-
-      align-items: center;
-
-      gap: 5px;
-
-      cursor: pointer;
-
+      justify-content: space-around;
+      padding: 10px 5px calc(10px + env(safe-area-inset-bottom));
+      z-index: 10;
     }
 
-    .nav-item .nav-icon {
-
-      font-size: 23px;
-
+    .nav button {
+      background: transparent;
+      border: 0;
+      color: var(--muted);
+      font-size: 11px;
+      min-width: 65px;
     }
 
-    .nav-item.active {
+    .nav button.active { color: var(--orange); }
 
+    .nav span {
+      display: block;
+      font-size: 20px;
+      margin-bottom: 3px;
+    }
+
+    .back {
+      background: none;
+      border: 0;
       color: var(--orange);
-
+      padding: 8px 0 15px;
+      font-weight: 700;
     }
 
-    .admin-card {
-
-      display: none;
-
+    .status {
+      display: inline-block;
+      color: var(--green);
+      font-size: 11px;
+      margin-bottom: 8px;
     }
+
+    .admin-card { display: none; }
 
     .empty {
-
+      text-align: center;
+      padding: 28px 12px;
       color: var(--muted);
-
-      line-height: 1.5;
-
+      background: var(--panel);
+      border-radius: 14px;
+      border: 1px solid var(--line);
     }
 
+    .hidden { display: none !important; }
   </style>
-
 </head>
 
 <body>
-
-  <header class="header">
-
-    <div>
-
-      <div class="logo">СТРЕЛ<span>ОК</span></div>
-
-      <div class="subtitle">СТРАЙКБОЛ • ПЕЙНТБОЛ • РЕБОЛ</div>
-
-    </div>
-
-    <div style="font-size:27px">⚙️</div>
-
-  </header>
-
-  <main>
+  <main class="app">
+    <header class="header">
+      <div class="logo">СТРЕЛОК<span>.</span></div>
+      <div class="tag">БРОНИРОВАНИЕ ИГР</div>
+    </header>
 
     <section id="home" class="page active">
-
       <div class="hero">
-
-        <h1>
-
-          ИГРАЙ.<br>
-
-          ОТДЫХАЙ.<br>
-
-          <span>БУДЬ В КОМАНДЕ!</span>
-
-        </h1>
-
+        <small>КЛУБ АКТИВНОГО ОТДЫХА</small>
+        <h1>ТВОЯ ИГРА.<br>ТВОИ ПРАВИЛА.</h1>
+        <p>Выбирай игру, собирай команду и выходи на поле.</p>
       </div>
 
-      <h2 class="section-title">Главное меню</h2>
+      <div class="section-title">Выбери направление</div>
 
-      <div class="main-card" onclick="showPage('games')">
+      <div class="grid">
+        <button class="tile" onclick="showPage('games')">
+          <span class="emoji">🎯</span>
+          <strong>Открытые игры</strong>
+          <small>Выбрать игру и записаться</small>
+        </button>
 
-        <div class="main-icon">▦</div>
+        <button class="tile" onclick="showPage('order')">
+          <span class="emoji">📝</span>
+          <strong>Заказать игру</strong>
+          <small>Организуем игру для вашей компании</small>
+        </button>
 
-        <div class="card-content">
+        <button class="tile" onclick="showPage('bookings')">
+          <span class="emoji">📋</span>
+          <strong>Мои бронирования</strong>
+          <small>Ваши записи и заявки</small>
+        </button>
 
-          <h2>Открытые игры</h2>
+        <button class="tile" onclick="showPage('club')">
+          <span class="emoji">🏴</span>
+          <strong>О клубе</strong>
+          <small>Площадки и информация</small>
+        </button>
 
-          <p>Запишись на ближайшую игру и проверь количество участников</p>
+        <button class="tile" onclick="showPage('gallery')">
+          <span class="emoji">📸</span>
+          <strong>Галерея</strong>
+          <small>Фото и видео с игр</small>
+        </button>
 
-        </div>
+        <button class="tile" onclick="showPage('contacts')">
+          <span class="emoji">☎️</span>
+          <strong>Контакты</strong>
+          <small>Связаться с нами</small>
+        </button>
 
-        <div class="arrow">›</div>
-
+        <button class="tile admin-card" id="adminHome" onclick="showPage('admin')">
+          <span class="emoji">⚙️</span>
+          <strong>Администрирование</strong>
+          <small>Управление клубом</small>
+        </button>
       </div>
-
-      <div class="small-grid">
-
-        <div class="small-card" onclick="showPage('bookings')">
-
-          <span class="main-icon">🎟</span>
-
-          <h3>Мои бронирования</h3>
-
-          <p>Твои записи на игры</p>
-
-        </div>
-
-        <div class="small-card" onclick="showPage('club')">
-
-          <span class="main-icon">ⓘ</span>
-
-          <h3>О клубе</h3>
-
-          <p>Правила, условия и цены</p>
-
-        </div>
-
-        <div class="small-card" onclick="showPage('gallery')">
-
-          <span class="main-icon">▧</span>
-
-          <h3>Галерея</h3>
-
-          <p>Фото и видео наших игр</p>
-
-        </div>
-
-        <div class="small-card" onclick="showPage('contacts')">
-
-          <span class="main-icon">☎</span>
-
-          <h3>Контакты</h3>
-
-          <p>Свяжись с нами</p>
-
-        </div>
-
-      </div>
-
-      <div class="main-card admin-card" id="adminCard" onclick="showPage('admin')">
-
-        <div class="main-icon">★</div>
-
-        <div class="card-content">
-
-          <h2>Администрирование</h2>
-
-          <p>Управление играми клуба</p>
-
-        </div>
-
-        <div class="arrow">›</div>
-
-      </div>
-
     </section>
 
     <section id="games" class="page">
+      <button class="back" onclick="showPage('home')">← Главная</button>
+      <div class="section-title">🎯 Открытые игры</div>
+      <p class="muted">Выбирай подходящую игру и записывайся. Количество участников обновляется по мере записи.</p>
+      <div id="gamesList"><div class="empty">Загрузка игр...</div></div>
+    </section>
 
-      <h1>🎯 Открытые игры</h1>
+    <section id="order" class="page">
+      <button class="back" onclick="showPage('home')">← Главная</button>
+      <div class="section-title">📝 Заказать игру</div>
+      <div class="card">
+        <p class="muted">Оставь заявку. Администратор свяжется с тобой, уточнит детали и подтвердит возможность проведения игры. Отправка заявки ещё не означает подтверждение бронирования.</p>
 
-      <div class="info-card empty">
+        <form id="orderForm">
+          <div class="field">
+            <label>Площадка</label>
+            <select id="orderVenue" required>
+              <option value="">Выбери площадку</option>
+              <option value="Бункер">Бункер</option>
+              <option value="Адмирал">Адмирал</option>
+              <option value="Глубокое озеро">Глубокое озеро</option>
+            </select>
+          </div>
 
-        Здесь будут отображаться реальные открытые игры клуба.
+          <div class="field">
+            <label>Вид игры</label>
+            <select id="orderType" required disabled>
+              <option value="">Сначала выбери площадку</option>
+            </select>
+          </div>
 
+          <div class="field">
+            <label>Желаемая дата</label>
+            <input id="orderDate" type="date" required>
+          </div>
+
+          <div class="field">
+            <label>Желаемое время</label>
+            <input id="orderTime" type="time" required>
+          </div>
+
+          <div class="field">
+            <label>Количество участников</label>
+            <input id="orderCount" type="number" min="1" max="100" placeholder="Например, 12" required>
+          </div>
+
+          <div class="field">
+            <label>Ваше имя</label>
+            <input id="orderName" type="text" maxlength="100" placeholder="Имя и фамилия" required>
+          </div>
+
+          <div class="field">
+            <label>Номер телефона</label>
+            <input id="orderPhone" type="tel" maxlength="30" placeholder="+7..." required>
+          </div>
+
+          <div class="field">
+            <label>Комментарий</label>
+            <textarea id="orderComment" maxlength="1000" placeholder="Дополнительные пожелания"></textarea>
+          </div>
+
+          <button class="primary" type="submit">Отправить заявку</button>
+        </form>
+        <div id="orderMessage" class="muted"></div>
       </div>
-
     </section>
 
     <section id="bookings" class="page">
-
-      <h1>🎟 Мои бронирования</h1>
-
-      <div class="info-card empty">
-
-        Здесь будут отображаться твои записи на игры.
-
-      </div>
-
+      <button class="back" onclick="showPage('home')">← Главная</button>
+      <div class="section-title">📋 Мои бронирования</div>
+      <div id="bookingsList"><div class="empty">Загрузка записей...</div></div>
     </section>
 
     <section id="profile" class="page">
-
-      <h1>👤 Профиль</h1>
-
-      <div class="info-card">
-
-        <p>Добро пожаловать в клуб «Стрелок»!</p>
-
-        <p style="margin-top:10px">Здесь появятся данные твоего Telegram-профиля.</p>
-
+      <button class="back" onclick="showPage('home')">← Главная</button>
+      <div class="section-title">👤 Профиль</div>
+      <div id="profileInfo" class="card">
+        <div class="muted">Загрузка профиля...</div>
       </div>
-
-    </section>
-
-    <section id="more" class="page">
-
-      <h1>Ещё</h1>
-
-      <div class="info-card" onclick="showPage('club')">ℹ️ Информация о клубе</div>
-
-      <div class="info-card" onclick="showPage('gallery')">📸 Галерея</div>
-
-      <div class="info-card" onclick="showPage('contacts')">📞 Контакты</div>
-
     </section>
 
     <section id="club" class="page">
-
-      <h1>ℹ️ О клубе</h1>
-
-      <div class="info-card">Здесь появится информация о клубе, правила и цены.</div>
-
+      <button class="back" onclick="showPage('home')">← Главная</button>
+      <div class="section-title">🏴 О клубе</div>
+      <div id="clubInfo" class="card">
+        <div class="muted">Информация о клубе загружается...</div>
+      </div>
+      <div class="card">
+        <h3>Наши площадки</h3>
+        <p class="muted"><b>Бункер:</b> страйкбол, лазертаг.</p>
+        <p class="muted"><b>Адмирал:</b> страйкбол, ребол, лазертаг.</p>
+        <p class="muted"><b>Глубокое озеро:</b> страйкбол, пейнтбол, лазертаг.</p>
+      </div>
     </section>
 
     <section id="gallery" class="page">
-
-      <h1>📸 Галерея</h1>
-
-      <div class="info-card">Здесь разместим фотографии и видео с игр.</div>
-
+      <button class="back" onclick="showPage('home')">← Главная</button>
+      <div class="section-title">📸 Галерея</div>
+      <div class="empty">Фотографии и видео с наших игр скоро появятся здесь.</div>
     </section>
 
     <section id="contacts" class="page">
-
-      <h1>📞 Контакты</h1>
-
-      <div class="info-card">
-
-        Свяжись с клубом «Стрелок».<br><br>
-
-        Телефон: 89274306868
-
+      <button class="back" onclick="showPage('home')">← Главная</button>
+      <div class="section-title">☎️ Контакты</div>
+      <div class="card">
+        <h3>Связаться с клубом «Стрелок»</h3>
+        <p class="muted">По вопросам игр, бронирования и организации мероприятий напиши нам.</p>
+        <button class="primary" onclick="contactClub()">Написать клубу</button>
       </div>
-
     </section>
 
     <section id="admin" class="page">
-
-      <h1>⚙️ Администрирование</h1>
-
-      <div class="info-card">
-
-        Здесь будет управление играми клуба.
-
+      <button class="back" onclick="showPage('home')">← Главная</button>
+      <div class="section-title">⚙️ Администрирование</div>
+      <div id="adminInfo" class="card">
+        <div class="muted">Проверка прав доступа...</div>
       </div>
-
+      <div id="adminOrders" class="card">
+        <h3>Заявки на клиентские игры</h3>
+        <div class="muted">Загрузка заявок...</div>
+      </div>
     </section>
-
   </main>
 
-  <nav class="bottom-nav">
-
-    <button class="nav-item active" onclick="showPage('home',this)">
-
-      <span class="nav-icon">⌂</span>
-
-      Главная
-
-    </button>
-
-    <button class="nav-item" onclick="showPage('games',this)">
-
-      <span class="nav-icon">▦</span>
-
-      Игры
-
-    </button>
-
-    <button class="nav-item" onclick="showPage('profile',this)">
-
-      <span class="nav-icon">♟</span>
-
-      Профиль
-
-    </button>
-
-    <button class="nav-item" onclick="showPage('more',this)">
-
-      <span class="nav-icon">•••</span>
-
-      Ещё
-
-    </button>
-
+  <nav class="nav">
+    <button class="active" data-page="home" onclick="showPage('home')"><span>⌂</span>Главная</button>
+    <button data-page="games" onclick="showPage('games')"><span>🎯</span>Игры</button>
+    <button data-page="profile" onclick="showPage('profile')"><span>👤</span>Профиль</button>
+    <button data-page="club" onclick="showPage('club')"><span>☰</span>Ещё</button>
   </nav>
 
   <script>
-
     const tg = window.Telegram?.WebApp;
 
     if (tg) {
-
       tg.ready();
-
       tg.expand();
-
-      tg.setHeaderColor('#101010');
-
-      tg.setBackgroundColor('#101010');
-
+      try {
+        tg.setHeaderColor("#111315");
+        tg.setBackgroundColor("#111315");
+      } catch (e) {}
     }
 
-    function showPage(page, button) {
+    const venueTypes = {
+      "Бункер": ["Страйкбол", "Лазертаг"],
+      "Адмирал": ["Страйкбол", "Ребол", "Лазертаг"],
+      "Глубокое озеро": ["Страйкбол", "Пейнтбол", "Лазертаг"]
+    };
 
-      document.querySelectorAll('.page').forEach(el => {
+    const venueSelect = document.getElementById("orderVenue");
+    const typeSelect = document.getElementById("orderType");
 
-        el.classList.remove('active');
+    venueSelect.addEventListener("change", () => {
+      const types = venueTypes[venueSelect.value] || [];
+      typeSelect.innerHTML = '<option value="">Выбери вид игры</option>';
+      types.forEach(type => {
+        const option = document.createElement("option");
+        option.value = type;
+        option.textContent = type;
+        typeSelect.appendChild(option);
+      });
+      typeSelect.disabled = types.length === 0;
+    });
 
+    function showPage(page) {
+      document.querySelectorAll(".page").forEach(el => el.classList.remove("active"));
+      document.getElementById(page)?.classList.add("active");
+
+      document.querySelectorAll(".nav button").forEach(el => {
+        el.classList.toggle("active", el.dataset.page === page);
       });
 
-      document.getElementById(page)?.classList.add('active');
+      if (window.loadMiniAppPage) window.loadMiniAppPage(page);
+    }
 
-      document.querySelectorAll('.nav-item').forEach(el => {
-
-        el.classList.remove('active');
-
-      });
-
-      if (button) {
-
-        button.classList.add('active');
-
+    function contactClub() {
+      const username = window.CLUB_TELEGRAM_USERNAME;
+      if (username) {
+        tg?.openTelegramLink("https://t.me/" + username);
       } else {
+        alert("Напиши нам через сообщения Telegram-канала клуба.");
+      }
+    }
 
-        const nav = document.querySelector(
+    document.getElementById("orderForm").addEventListener("submit", async event => {
+      event.preventDefault();
 
-          `.nav-item[onclick*="'${page}'"]`
-
-        );
-
-        if (nav) nav.classList.add('active');
-
+      if (!window.submitOrderRequest) {
+        document.getElementById("orderMessage").textContent =
+          "Форма пока подключается. Попробуй немного позже.";
+        return;
       }
 
-      window.scrollTo(0, 0);
+      await window.submitOrderRequest();
+    });
 
-    }
-
-  </script>
+    const dateInput = document.getElementById("orderDate");
+    const today = new Date();
+    dateInput.min = [
+      today.getFullYear(),
+      String(today.getMonth() + 1).padStart(2, "0"),
+      String(today.getDate()).padStart(2, "0")
+    ].join("-");
   </script>
 
   <script src="/miniapp.js"></script>
-
 </body>
-
-</html>
-</body>
-
 </html>
