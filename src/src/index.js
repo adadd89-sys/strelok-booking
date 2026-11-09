@@ -1174,6 +1174,285 @@ async function ensureMiniAppTables(env) {
   `).run();
 }
 
+async function miniAppApi(request, env, url) {
+  try {
+    const user = await verifyTelegramInitData(request, env);
+
+    if (!user) {
+      return miniJson({ error: "Необходима авторизация Telegram" }, 401);
+    }
+
+    await ensureMiniAppTables(env);
+
+    const uid = String(user.id);
+    const method = request.method;
+    const path = url.pathname;
+
+    const readBody = async () => {
+      try {
+        return await request.json();
+      } catch {
+        return null;
+      }
+    };
+
+    // Открытые игры
+    if (path === "/api/games" && method === "GET") {
+      const result = await env.DB.prepare(`
+        SELECT g.*,
+          COALESCE(SUM(
+            CASE WHEN b.status = 'active'
+            THEN b.participants ELSE 0 END
+          ), 0) AS booked
+        FROM games g
+        LEFT JOIN bookings b ON b.game_id = g.id
+        WHERE g.status = 'open'
+          AND (
+            g.game_date > date('now','localtime')
+            OR (
+              g.game_date = date('now','localtime')
+              AND g.game_time >= time('now','localtime')
+            )
+          )
+        GROUP BY g.id
+        ORDER BY g.game_date, g.game_time
+      `).all();
+
+      return miniJson({ games: result.results || [] });
+    }
+
+    // Мои бронирования
+    if (path === "/api/bookings" && method === "GET") {
+      const result = await env.DB.prepare(`
+        SELECT b.*, g.title, g.game_date, g.game_time, g.price
+        FROM bookings b
+        LEFT JOIN games g ON g.id = b.game_id
+        WHERE b.telegram_id = ?
+        ORDER BY b.created_at DESC
+      `).bind(uid).all();
+
+      return miniJson({ bookings: result.results || [] });
+    }
+
+    // Запись на открытую игру
+    if (path === "/api/bookings" && method === "POST") {
+      const body = await readBody();
+      if (!body) return miniJson({ error: "Некорректные данные" }, 400);
+
+      const gameId = Number(body.game_id);
+      const participants = Number(body.participants);
+      const name = String(body.organizer_name || "").trim();
+      const phone = String(body.phone || "").trim();
+
+      if (!Number.isInteger(gameId) || gameId < 1 ||
+          !Number.isInteger(participants) || participants < 1 ||
+          participants > 30 || !name || !phone) {
+        return miniJson({ error: "Проверьте данные записи" }, 400);
+      }
+
+      const game = await env.DB.prepare(`
+        SELECT id, title FROM games
+        WHERE id = ? AND status = 'open'
+      `).bind(gameId).first();
+
+      if (!game) return miniJson({ error: "Игра недоступна" }, 404);
+
+      const existing = await env.DB.prepare(`
+        SELECT id FROM bookings
+        WHERE game_id = ? AND telegram_id = ? AND status = 'active'
+      `).bind(gameId, uid).first();
+
+      if (existing) {
+        return miniJson({ error: "Вы уже записаны на эту игру" }, 409);
+      }
+
+      const inserted = await env.DB.prepare(`
+        INSERT INTO bookings
+          (game_id, telegram_id, organizer_name, phone, participants)
+        VALUES (?, ?, ?, ?, ?)
+      `).bind(gameId, uid, name, phone, participants).run();
+
+      const bookingId = inserted.meta?.last_row_id;
+
+      await env.DB.prepare(`
+        INSERT INTO booking_history
+          (booking_id, action, old_data, new_data)
+        VALUES (?, 'created', NULL, ?)
+      `).bind(
+        bookingId,
+        JSON.stringify({ game_id: gameId, participants, name, phone })
+      ).run();
+
+      await notifyAdmins(
+        env,
+        `Новая запись через Mini App\nИгра: ${escapeHtml(game.title)}\nИмя: ${escapeHtml(name)}\nТелефон: ${escapeHtml(phone)}\nУчастников: ${participants}`
+      );
+
+      return miniJson({ success: true, booking_id: bookingId });
+    }
+
+    // Отмена бронирования
+    const cancelMatch = path.match(/^\/api\/bookings\/(\d+)$/);
+
+    if (cancelMatch && method === "DELETE") {
+      const bookingId = Number(cancelMatch[1]);
+
+      const booking = await env.DB.prepare(`
+        SELECT * FROM bookings
+        WHERE id = ? AND telegram_id = ? AND status = 'active'
+      `).bind(bookingId, uid).first();
+
+      if (!booking) {
+        return miniJson({ error: "Запись не найдена" }, 404);
+      }
+
+      await env.DB.prepare(`
+        UPDATE bookings
+        SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
+        WHERE id = ? AND telegram_id = ?
+      `).bind(bookingId, uid).run();
+
+      await env.DB.prepare(`
+        INSERT INTO booking_history
+          (booking_id, action, old_data, new_data)
+        VALUES (?, 'cancelled', ?, NULL)
+      `).bind(bookingId, JSON.stringify(booking)).run();
+
+      await notifyAdmins(
+        env,
+        `Отмена записи через Mini App. Номер записи: ${bookingId}`
+      );
+
+      return miniJson({ success: true });
+    }
+
+    // Профиль пользователя
+    if (path === "/api/profile" && method === "GET") {
+      return miniJson({
+        user: {
+          id: user.id,
+          first_name: user.first_name || "",
+          last_name: user.last_name || "",
+          username: user.username || ""
+        }
+      });
+    }
+
+    // Информация о клубе
+    if (path === "/api/club" && method === "GET") {
+      const club = await env.DB.prepare(`
+        SELECT * FROM club_info ORDER BY id LIMIT 1
+      `).first();
+
+      return miniJson({ club: club || {} });
+    }
+
+    // Заявка на заказную игру
+    if (path === "/api/order-requests" && method === "POST") {
+      const body = await readBody();
+      if (!body) return miniJson({ error: "Некорректные данные" }, 400);
+
+      const venue = String(body.venue || "").trim();
+      const gameType = String(body.game_type || "").trim();
+      const gameDate = String(body.game_date || "").trim();
+      const gameTime = String(body.game_time || "").trim();
+      const participants = Number(body.participants);
+      const name = String(body.name || "").trim();
+      const phone = String(body.phone || "").trim();
+      const comment = String(body.comment || "").trim();
+
+      const allowed = {
+        "Бункер": ["страйкбол", "лазертаг"],
+        "Адмирал": ["страйкбол", "ребол", "лазертаг"],
+        "Глубокое озеро": ["страйкбол", "пейнтбол", "лазертаг"]
+      };
+
+      if (!allowed[venue] || !allowed[venue].includes(gameType) ||
+          !/^\d{4}-\d{2}-\d{2}$/.test(gameDate) ||
+          !/^\d{2}:\d{2}$/.test(gameTime) ||
+          !Number.isInteger(participants) || participants < 1 ||
+          participants > 100 || !name || !phone) {
+        return miniJson({ error: "Проверьте заполнение формы" }, 400);
+      }
+
+      const result = await env.DB.prepare(`
+        INSERT INTO order_requests
+          (telegram_id, venue, game_type, game_date, game_time,
+           participants, name, phone, comment)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        uid, venue, gameType, gameDate, gameTime,
+        participants, name, phone, comment
+      ).run();
+
+      await notifyAdmins(
+        env,
+        `Новая заявка на игру!\nПлощадка: ${escapeHtml(venue)}\nИгра: ${escapeHtml(gameType)}\nДата: ${escapeHtml(gameDate)}\nВремя: ${escapeHtml(gameTime)}\nУчастников: ${participants}\nИмя: ${escapeHtml(name)}\nТелефон: ${escapeHtml(phone)}\nКомментарий: ${escapeHtml(comment)}`
+      );
+
+      return miniJson({
+        success: true,
+        request_id: result.meta?.last_row_id
+      });
+    }
+
+    // Проверка прав администратора
+    const role = await isAdmin(env, uid);
+
+    if (path === "/api/admin" && method === "GET") {
+      return miniJson({ isAdmin: !!role, role: role || null });
+    }
+
+    // Заявки на заказные игры
+    if (path === "/api/admin/orders" && method === "GET") {
+      if (!role) return miniJson({ error: "Нет доступа" }, 403);
+
+      const result = await env.DB.prepare(`
+        SELECT * FROM order_requests ORDER BY created_at DESC
+      `).all();
+
+      return miniJson({ orders: result.results || [] });
+    }
+
+    const orderMatch = path.match(/^\/api\/admin\/orders\/(\d+)$/);
+
+    if (orderMatch && method === "PATCH") {
+      if (!role) return miniJson({ error: "Нет доступа" }, 403);
+
+      const body = await readBody();
+      const status = String(body?.status || "");
+      const allowedStatuses = [
+        "Связались",
+        "Подтверждена",
+        "Отклонена"
+      ];
+
+      if (!allowedStatuses.includes(status)) {
+        return miniJson({ error: "Недопустимый статус" }, 400);
+      }
+
+      const result = await env.DB.prepare(`
+        UPDATE order_requests
+        SET status = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).bind(status, Number(orderMatch[1])).run();
+
+      if (!result.meta?.changes) {
+        return miniJson({ error: "Заявка не найдена" }, 404);
+      }
+
+      return miniJson({ success: true });
+    }
+
+    return miniJson({ error: "Маршрут не найден" }, 404);
+
+  } catch (error) {
+    console.error("Mini App API error:", error);
+    return miniJson({ error: "Внутренняя ошибка сервера" }, 500);
+  }
+}
+
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
