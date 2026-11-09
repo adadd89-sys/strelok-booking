@@ -146,6 +146,7 @@ function checkTelegramAuth() {
     }
   }
 
+      checkTelegramAuth();
   async function bookGame(gameId) {
     const game = state.games.find(item => Number(item.id) === gameId);
 
