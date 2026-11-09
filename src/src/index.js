@@ -1187,6 +1187,11 @@ async function ensureVenueTables(env){
   await env.DB.prepare("UPDATE venues SET address=? WHERE slug=? AND (address IS NULL OR address='')").bind(x[4],x[0]).run();
  }
 }
+async function ensureGameFormatTables(env) {
+  await env.DB.prepare("CREATE TABLE IF NOT EXISTS game_formats(slug TEXT PRIMARY KEY,name TEXT NOT NULL,description TEXT DEFAULT '',equipment TEXT DEFAULT '',sort_order INTEGER DEFAULT 0)").run();
+  const formats=[["airsoft","Страйкбол",1],["paintball","Пейнтбол",2],["reball","Ребол",3],["lasertag","Лазертаг",4]];
+  for(const x of formats) await env.DB.prepare("INSERT OR IGNORE INTO game_formats(slug,name,sort_order) VALUES(?,?,?)").bind(x[0],x[1],x[2]).run();
+}
 async function miniAppApi(request, env, url) {
   try {
     const user = await verifyTelegramInitData(request, env);
@@ -1368,6 +1373,10 @@ if(path.startsWith("/api/admin/venues/")&&method==="PUT"){if(!(await isAdmin(env
 if(path==="/api/admin/venues/photo"&&method==="POST"){if(!(await isAdmin(env,uid)))return miniJson({error:"Нет доступа"},403);await ensureVenueTables(env);const f=await request.formData(),s=String(f.get("venue_slug")||""),photo=f.get("photo");if(!["bunker","admiral","glubokoe-ozero"].includes(s)||!photo||typeof photo.arrayBuffer!=="function")return miniJson({error:"Не выбрана площадка или фотография"},400);if(!["image/jpeg","image/png","image/webp"].includes(photo.type)||photo.size>10*1024*1024)return miniJson({error:"Поддерживаются JPG, PNG и WebP до 10 МБ"},400);const up=new FormData();up.append("chat_id",String(env.OWNER_ID||"752535421"));up.append("photo",photo,photo.name||"venue-photo");const rr=await fetch(API(env.TELEGRAM_BOT_TOKEN,"sendPhoto"),{method:"POST",body:up}),t=await rr.json();if(!t.ok||!t.result?.photo?.length)return miniJson({error:"Telegram не принял фото. Сначала откройте диалог с ботом."},502);await env.DB.prepare("INSERT INTO venue_photos(venue_slug,file_id) VALUES(?,?)").bind(s,t.result.photo[t.result.photo.length-1].file_id).run();return miniJson({success:true});}
 if(path.startsWith("/api/admin/venues/photo/")&&method==="DELETE"){if(!(await isAdmin(env,uid)))return miniJson({error:"Нет доступа"},403);await ensureVenueTables(env);const id=Number(path.split("/").pop());if(!Number.isInteger(id)||id<1)return miniJson({error:"Неверный идентификатор фото"},400);await env.DB.prepare("DELETE FROM venue_photos WHERE id=?").bind(id).run();return miniJson({success:true});}
     // Информация о клубе
+    if(path==="/api/game-formats"&&method==="GET"){await ensureGameFormatTables(env);const r=await env.DB.prepare("SELECT slug,name,description,equipment FROM game_formats ORDER BY sort_order").all();return miniJson({formats:r.results||[]});}
+    if(path==="/api/admin/game-formats"&&method==="GET"){if(!(await isAdmin(env,uid)))return miniJson({error:"Нет доступа"},403);await ensureGameFormatTables(env);const r=await env.DB.prepare("SELECT slug,name,description,equipment FROM game_formats ORDER BY sort_order").all();return miniJson({formats:r.results||[]});}
+    if(path.startsWith("/api/admin/game-formats/")&&method==="PUT"){if(!(await isAdmin(env,uid)))return miniJson({error:"Нет доступа"},403);await ensureGameFormatTables(env);const slug=decodeURIComponent(path.split("/").pop()||"");const b=await readBody();if(!b||!["airsoft","paintball","reball","lasertag"].includes(slug))return miniJson({error:"Неверные данные"},400);const description=String(b.description||"").trim(),equipment=String(b.equipment||"").trim();if(description.length>5000||equipment.length>5000)return miniJson({error:"Текст не должен превышать 5000 символов"},400);await env.DB.prepare("UPDATE game_formats SET description=?,equipment=? WHERE slug=?").bind(description,equipment,slug).run();return miniJson({success:true});}
+
     if (path === "/api/club" && method === "GET") {
       const club = await env.DB.prepare(`
         SELECT * FROM club_info ORDER BY id LIMIT 1
