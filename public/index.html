@@ -430,6 +430,17 @@
     @media (prefers-reduced-motion: reduce) {
       *,*::before,*::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
     }
+  
+    .gallery-filters{display:flex;gap:8px;margin:14px 0 18px}
+    .gallery-filters button{flex:1}
+    .gallery-filters button.active{border-color:var(--orange);color:var(--orange)}
+    .gallery-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .gallery-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+    .gallery-card img,.gallery-card video{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:#080a09}
+    .gallery-caption{padding:10px 12px;color:var(--muted);font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
+    .gallery-album{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px}
+    .gallery-album img,.gallery-album video{aspect-ratio:1/1}
+    @media(max-width:380px){.gallery-grid{grid-template-columns:1fr}}
   </style>
 </head>
 
@@ -639,7 +650,12 @@
     <section id="gallery" class="page">
       <button class="back" onclick="showPage('home')">← Главная</button>
       <div class="section-title">📸 Галерея</div>
-      <div class="empty">Фотографии и видео с наших игр скоро появятся здесь.</div>
+      <div class="gallery-filters">
+        <button class="secondary active" data-gallery-filter="all">Все</button>
+        <button class="secondary" data-gallery-filter="photo">Фото</button>
+        <button class="secondary" data-gallery-filter="video">Видео</button>
+      </div>
+      <div id="galleryList"><div class="empty">Загружаем галерею...</div></div>
     </section>
 
     <section id="contacts" class="page">
