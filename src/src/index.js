@@ -1322,7 +1322,18 @@ async function miniAppApi(request, env, url) {
         ORDER BY b.created_at DESC
       `).bind(uid).all();
 
-      return miniJson({ bookings: result.results || [] });
+      const orderResult = await env.DB.prepare(`
+        SELECT id, venue, game_type, game_date, game_time,
+               participants, status, created_at
+        FROM order_requests
+        WHERE telegram_id = ?
+        ORDER BY created_at DESC
+      `).bind(uid).all();
+
+      return miniJson({
+        bookings: result.results || [],
+        orderRequests: orderResult.results || []
+      });
     }
 
     // Запись на открытую игру
