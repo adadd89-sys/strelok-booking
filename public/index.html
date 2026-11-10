@@ -10,6 +10,7 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Oswald:wght@500;600;700&display=swap');
     :root {
       color-scheme: dark;
       --bg: #111315;
@@ -277,9 +278,7 @@
 
     .hidden { display: none !important; }
 
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Oswald:wght@500;600;700&display=swap');
-
-    :root {
+        :root {
       --bg: #0c100e;
       --panel: #151c18;
       --panel2: #202923;
@@ -333,6 +332,70 @@
     .card { border-radius: 17px; }
     .tile { border-radius: 17px; }
     .hero { border-radius: 20px; }
+
+    /* Единый стиль внутренних экранов */
+    h1,h2,h3,h4,.section-title,strong { text-wrap: pretty; }
+    h2,h3,h4 { font-family: 'Oswald','Inter',sans-serif; letter-spacing: .25px; }
+    p { line-height: 1.6; }
+    .page { animation: pageIn .22s ease both; }
+    @keyframes pageIn { from { opacity: .65; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    .back { font-size: 13px; }
+    .back:active { opacity: .7; }
+    .primary,.secondary {
+      min-height: 46px;
+      font-weight: 800;
+      letter-spacing: .15px;
+      transition: transform .15s ease, filter .15s ease;
+    }
+    .primary:hover { filter: brightness(1.06); }
+    .secondary:hover { border-color: var(--green); }
+    button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+      outline: 2px solid var(--green);
+      outline-offset: 2px;
+    }
+    .field label { font-weight: 700; letter-spacing: .15px; }
+    .field input,.field textarea,.field select {
+      background: #0d1410;
+      border-color: #344238;
+      min-height: 45px;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .field input:focus,.field textarea:focus,.field select:focus {
+      box-shadow: 0 0 0 3px rgba(184,243,74,.10);
+    }
+    .field input::placeholder,.field textarea::placeholder { color: #68736b; }
+    .card h3 { padding-bottom: 8px; border-bottom: 1px solid rgba(160,170,162,.13); }
+    .empty { background: linear-gradient(145deg,#172019,#121814); }
+    .nav button { transition: color .15s ease, transform .15s ease; }
+    .nav button.active { font-weight: 800; }
+    .nav button.active span { filter: drop-shadow(0 0 7px rgba(184,243,74,.35)); }
+    .status { background: rgba(184,243,74,.09); border: 1px solid rgba(184,243,74,.22); border-radius: 20px; padding: 5px 9px; }
+    .muted a { color: var(--green); }
+    .card img { border-radius: 11px; }
+    .card hr, hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
+    .card button:not(.primary):not(.secondary) {
+      border-radius: 9px;
+      border: 1px solid #405044;
+      background: #202923;
+      color: var(--text);
+      padding: 9px 12px;
+    }
+    .card button[data-delete-venue-photo], .card button[data-order-status="Отклонена"] {
+      border-color: rgba(227,75,75,.45);
+      color: #ff7777;
+    }
+    .card button:disabled, .primary:disabled { opacity: .48; cursor: not-allowed; }
+    input[type="file"] { color: var(--muted); }
+    ::selection { background: rgba(184,243,74,.28); color: white; }
+    @media (max-width: 380px) {
+      .app { padding: 15px 12px; }
+      .hero h1 { font-size: 27px; }
+      .tile { padding: 15px 12px; }
+      .tile strong { font-size: 13px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *,*::before,*::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
   </style>
 </head>
 
@@ -616,6 +679,6 @@
     ].join("-");
   </script>
 
-  <script src="/miniapp.js?v=20261110-13"></script>
+  <script src="/miniapp.js?v=20261110-14"></script>
 </body>
 </html>
