@@ -531,6 +531,9 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
       button.dataset.timeValue = value;
       button.textContent = value;
       button.setAttribute("aria-pressed", value === previousTime ? "true" : "false");
+      // Attach selection directly to each slot. This avoids delegated-event
+      // quirks in some iOS Telegram WebView versions.
+      button.addEventListener("click", () => selectOrderTime(button));
       choices.appendChild(button);
     }
 
@@ -560,20 +563,17 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
     if (currentValue !== lastOrderDateValue || needsOptions) updateOrderTimeOptions();
   }
 
-  // Delegate selection so taps work reliably in iOS Telegram WebView.
-  $("orderTimeChoices")?.addEventListener("click", event => {
-    const button = event.target.closest("[data-time-value]");
-    if (!button) return;
+  function selectOrderTime(button) {
     const timeInput = $("orderTime");
     const choices = $("orderTimeChoices");
-    if (!timeInput || !choices) return;
+    if (!button || !timeInput || !choices || !button.dataset.timeValue) return;
     timeInput.value = button.dataset.timeValue;
     choices.querySelectorAll(".time-choice").forEach(item => {
       const active = item === button;
       item.classList.toggle("active", active);
       item.setAttribute("aria-pressed", active ? "true" : "false");
     });
-  });
+  }
 
   // Expose an explicit handler for native date controls in Telegram WebView.
   window.updateOrderTimeOptions = updateOrderTimeOptions;
