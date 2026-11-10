@@ -1789,6 +1789,21 @@ if (!phone) {
       });
     }
 
+    // Удаление медиа из галереи доступно только администраторам
+    const galleryDeleteMatch = path.match(/^\/api\/admin\/gallery\/(\d+)$/);
+    if (galleryDeleteMatch && method === "DELETE") {
+      if (!role) return miniJson({ error: "Нет доступа" }, 403);
+      await ensureGalleryTable(env);
+      const id = Number(galleryDeleteMatch[1]);
+      const result = await env.DB.prepare(
+        "DELETE FROM gallery_items WHERE id=?"
+      ).bind(id).run();
+      if (!result.meta?.changes) {
+        return miniJson({ error: "Публикация не найдена" }, 404);
+      }
+      return miniJson({ success: true });
+    }
+
     // Заявки на заказные игры
     if (path === "/api/admin/orders" && method === "GET") {
       if (!role) return miniJson({ error: "Нет доступа" }, 403);
