@@ -103,6 +103,31 @@
     ].filter(Boolean).join(" ");
   }
 
+
+  let galleryFilter = "all";
+  async function loadGallery() {
+    const list = $("galleryList");
+    if (!list) return;
+    list.innerHTML = emptyMessage("Загружаем галерею...");
+    try {
+      const data = await api("/api/gallery?type=" + encodeURIComponent(galleryFilter));
+      const groups = Array.isArray(data.items) ? data.items : [];
+      if (!groups.length) {
+        list.innerHTML = emptyMessage("Пока в галерее нет публикаций. Новые фото и видео появятся здесь автоматически.");
+        return;
+      }
+      list.innerHTML = '<div class="gallery-grid">' + groups.map(group => {
+        const media = group.items.map(item => item.type === "video"
+          ? `<video controls playsinline preload="metadata" src="${escapeHtml(item.url)}"></video>`
+          : `<img loading="lazy" src="${escapeHtml(item.url)}" alt="Фото с игры">`).join("");
+        return `<article class="gallery-card">${group.items.length > 1 ? `<div class="gallery-album">${media}</div>` : media}${group.caption ? `<div class="gallery-caption">${escapeHtml(group.caption)}</div>` : ""}</article>`;
+      }).join("") + "</div>";
+    } catch (error) {
+      console.error("loadGallery:", error);
+      list.innerHTML = emptyMessage("Не удалось загрузить галерею. Попробуй обновить страницу.");
+    }
+  }
+
   // ОПИСАНИЕ ФОРМАТОВ ИГР
   const gameFormatNames = {airsoft:"Страйкбол",paintball:"Пейнтбол",reball:"Ребол",lasertag:"Лазертаг",hydroball:"Гидробол с орбизами"};
   let gameFormats = [];
@@ -700,7 +725,7 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
       case "gameFormats":
         loadGameFormats();
         break;
-      case "bookings":
+      case "gallery":\n        loadGallery();\n        break;\n      case "bookings":
         loadBookings();
         break;
       case "profile":
@@ -718,7 +743,7 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
 
   // ОБРАБОТЧИКИ КНОПОК
 
-  document.addEventListener("submit", event => {
+  document.addEventListener("click", event => {\n    const filter = event.target.closest("[data-gallery-filter]");\n    if (!filter) return;\n    galleryFilter = filter.dataset.galleryFilter;\n    document.querySelectorAll("[data-gallery-filter]").forEach(button => button.classList.toggle("active", button === filter));\n    loadGallery();\n  });\n\n  document.addEventListener("submit", event => {
     if (event.target?.id === "bookingForm") submitBooking(event);
     if (event.target?.id === "clubInfoForm") saveClubInfo(event);
     if (event.target?.matches("[data-venue-form]")) saveVenue(event);
