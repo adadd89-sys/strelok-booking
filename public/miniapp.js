@@ -478,6 +478,8 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
 
   $("orderVenue")?.addEventListener("change", updateOrderTypes);
   $("orderDate")?.addEventListener("change", updateOrderTimeOptions);
+  $("orderDate")?.addEventListener("blur", updateOrderTimeOptions);
+  $("orderDate")?.addEventListener("focusout", updateOrderTimeOptions);
 
 
   function moscowDateTimeParts() {
@@ -544,8 +546,18 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
   // iOS Telegram WebView may not emit input/change consistently after dismissing
   // the native date picker. Poll only for a changed date, not on every tick.
   function syncOrderDateValue() {
-    const currentValue = $("orderDate")?.value ?? "";
-    if (currentValue !== lastOrderDateValue) updateOrderTimeOptions();
+    const dateInput = $("orderDate");
+    const timeSelect = $("orderTime");
+    if (!dateInput || !timeSelect) return;
+
+    const currentValue = dateInput.value || "";
+    const needsOptions = currentValue
+      ? (!timeSelect.options.length || (timeSelect.options.length === 1 && !timeSelect.options[0].value))
+      : (timeSelect.options.length !== 1 || timeSelect.options[0]?.textContent !== "Сначала выбери дату");
+
+    // Some WebViews fire date events before the native picker commits its value.
+    // Also rebuild if the date is already present but the time list is still a placeholder.
+    if (currentValue !== lastOrderDateValue || needsOptions) updateOrderTimeOptions();
   }
 
   // Expose an explicit handler for native date controls in Telegram WebView.
@@ -558,6 +570,9 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
     if (event.target?.id === "orderDate") updateOrderTimeOptions();
   }, true);
   document.addEventListener("change", event => {
+    if (event.target?.id === "orderDate") updateOrderTimeOptions();
+  }, true);
+  document.addEventListener("blur", event => {
     if (event.target?.id === "orderDate") updateOrderTimeOptions();
   }, true);
   document.addEventListener("focusin", event => {
