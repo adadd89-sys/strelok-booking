@@ -209,52 +209,65 @@
     }
   }
 
-  async function bookGame(gameId) {
+  let pendingGameId = null;
 
+  function openBookingModal(gameId) {
     const game = state.games.find(item => Number(item.id) === gameId);
-
-    if (!game) {
-      alert("Игра не найдена. Обнови список.");
-      return;
-    }
-
+    const modal = $("bookingModal");
+    const form = $("bookingForm");
+    const message = $("bookingMessage");
+    if (!game || !modal || !form) return;
+    pendingGameId = gameId;
+    form.reset();
     const user = getTelegramUser();
-    const defaultName = userName(user);
+    form.elements.organizer_name.value = userName(user);
+    message.textContent = "";
+    modal.hidden = false;
+    document.body.style.overflow = "hidden";
+    setTimeout(() => form.elements.organizer_name.focus(), 50);
+  }
 
-    const name = prompt("Как тебя записать?", defaultName);
-    if (!name || !name.trim()) return;
+  function closeBookingModal() {
+    const modal = $("bookingModal");
+    if (modal) modal.hidden = true;
+    document.body.style.overflow = "";
+    pendingGameId = null;
+  }
 
-    const phone = prompt("Укажи номер телефона:");
-    if (!phone || !phone.trim()) return;
+  async function submitBooking(event) {
+    event.preventDefault();
+    const form = $("bookingForm");
+    const button = form.querySelector('button[type="submit"]');
+    const message = $("bookingMessage");
+    const name = form.elements.organizer_name.value.trim();
+    const phone = form.elements.phone.value.trim();
+    const participants = Number(form.elements.participants.value);
 
-    const participantsText = prompt("Сколько человек записать?", "1");
-    if (participantsText === null) return;
-
-    const participants = Number(participantsText);
-
-    if (!Number.isInteger(participants) || participants < 1 || participants > 100) {
-      alert("Укажи корректное количество участников от 1 до 100.");
+    if (!name || !phone || !Number.isInteger(participants) || participants < 1 || participants > 100) {
+      showMessage(message, "Проверь заполнение всех полей.", true);
       return;
     }
 
+    if (button) button.disabled = true;
+    showMessage(message, "Отправляем заявку...");
     try {
       await api("/api/bookings", {
         method: "POST",
         body: JSON.stringify({
-          game_id: gameId,
-          organizer_name: name.trim(),
-          phone: phone.trim(),
+          game_id: pendingGameId,
+          organizer_name: name,
+          phone,
           participants
         })
       });
-
-      alert("Заявка на запись отправлена!");
+      showMessage(message, "Заявка на запись отправлена!");
       await loadGames();
       await loadBookings();
-
+      setTimeout(closeBookingModal, 1100);
     } catch (error) {
-      console.error("bookGame:", error);
-      alert(error.message || "Не удалось записаться. Попробуй позже.");
+      showMessage(message, error.message || "Не удалось записаться. Попробуй позже.", true);
+    } finally {
+      if (button) button.disabled = false;
     }
   }
 
@@ -706,6 +719,7 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
   // ОБРАБОТЧИКИ КНОПОК
 
   document.addEventListener("submit", event => {
+    if (event.target?.id === "bookingForm") submitBooking(event);
     if (event.target?.id === "clubInfoForm") saveClubInfo(event);
     if (event.target?.matches("[data-venue-form]")) saveVenue(event);
     if (event.target?.matches("[data-game-format-form]")) saveGameFormat(event);
@@ -713,6 +727,7 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
 
   document.addEventListener("change",e=>{const i=e.target.closest("[data-venue-upload]");if(i)uploadVenuePhotos(i);});
   document.addEventListener("click", async event => {
+    if (event.target.closest("[data-booking-close]")) { closeBookingModal(); return; }
     const gf=event.target.closest("[data-open-game-format]");if(gf){renderGameFormat(gf.dataset.openGameFormat);return;}
     if(event.target.closest("[data-game-formats-back]")){activeGameFormat=null;$("gameFormatDetails").hidden=true;$("gameFormatsList").hidden=false;return;}
     const o=event.target.closest("[data-open-venue]");if(o){renderVenueDetails(o.dataset.openVenue);return;}
@@ -742,7 +757,7 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
 
     const bookButton = event.target.closest("[data-book-game]");
     if (bookButton) {
-      bookGame(Number(bookButton.dataset.bookGame));
+      openBookingModal(Number(bookButton.dataset.bookGame));
       return;
     }
 
