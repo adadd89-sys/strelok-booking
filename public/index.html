@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <meta name="theme-color" content="#111315">
+  <meta name="theme-color" content="#0c100e">
   <title>Стрелок | Бронирование игр</title>
 
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -276,6 +276,63 @@
     }
 
     .hidden { display: none !important; }
+
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Oswald:wght@500;600;700&display=swap');
+
+    :root {
+      --bg: #0c100e;
+      --panel: #151c18;
+      --panel2: #202923;
+      --orange: #b8f34a;
+      --green: #b8f34a;
+      --text: #f2f5f0;
+      --muted: #a0aaa2;
+      --line: #303d34;
+      --red: #e34b4b;
+    }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background:
+        radial-gradient(ellipse at 85% 0%, rgba(184,243,74,.07), transparent 36%),
+        var(--bg);
+    }
+    .logo, .hero h1, .section-title, .card h3 {
+      font-family: 'Oswald', 'Inter', sans-serif;
+      letter-spacing: .4px;
+    }
+    .logo span, .hero small, .tag, .back, .nav button.active { color: var(--green); }
+    .tag { border-color: rgba(184,243,74,.35); background: rgba(184,243,74,.07); }
+    .hero {
+      border: 1px solid rgba(184,243,74,.24);
+      background:
+        linear-gradient(90deg, rgba(5,9,6,.94), rgba(5,9,6,.40)),
+        radial-gradient(circle at 88% 18%, rgba(184,243,74,.24), transparent 34%),
+        linear-gradient(135deg, #27352a, #111914 68%, #421e20);
+      box-shadow: inset 4px 0 0 var(--green), 0 14px 34px rgba(0,0,0,.22);
+    }
+    .tile, .card, .empty {
+      border-color: #2d3b31;
+      box-shadow: 0 7px 20px rgba(0,0,0,.14);
+    }
+    .tile { transition: transform .16s ease, border-color .16s ease, background .16s ease; }
+    .tile:active { border-color: var(--green); background: #1b281e; }
+    .tile .emoji { filter: saturate(.85); }
+    .primary {
+      background: var(--green);
+      color: #11170d;
+      box-shadow: 0 5px 16px rgba(184,243,74,.16);
+    }
+    .secondary { border-color: #405044; }
+    .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--green); }
+    .orange { color: var(--red); }
+    .status { color: var(--green); }
+    .nav { background: rgba(17,24,19,.97); border-top-color: #344238; }
+    .back { color: var(--green); }
+    .admin-card { display: block; }
+    .section-title { font-size: 21px; }
+    .card { border-radius: 17px; }
+    .tile { border-radius: 17px; }
+    .hero { border-radius: 20px; }
   </style>
 </head>
 
@@ -492,8 +549,8 @@
       tg.ready();
       tg.expand();
       try {
-        tg.setHeaderColor("#111315");
-        tg.setBackgroundColor("#111315");
+        tg.setHeaderColor("#0c100e");
+        tg.setBackgroundColor("#0c100e");
       } catch (e) {}
     }
 
@@ -559,6 +616,6 @@
     ].join("-");
   </script>
 
-  <script src="/miniapp.js?v=20261110-12"></script>
+  <script src="/miniapp.js?v=20261110-13"></script>
 </body>
 </html>
