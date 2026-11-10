@@ -1697,6 +1697,43 @@ if (!phone) {
       });
     }
 
+    // Галерея фото и видео
+    if (path === "/api/gallery" && method === "GET") {
+      await ensureGalleryTable(env);
+      const type = url.searchParams.get("type") || "all";
+      if (!["all", "photo", "video"].includes(type)) {
+        return miniJson({ error: "Некорректный тип галереи" }, 400);
+      }
+
+      const result = await env.DB.prepare(
+        `SELECT id, group_key, media_type, caption, sort_date
+         FROM gallery_items
+         WHERE (? = 'all' OR media_type = ?)
+         ORDER BY sort_date DESC, id DESC
+         LIMIT 200`
+      ).bind(type, type).all();
+
+      const grouped = new Map();
+      for (const row of (result.results || [])) {
+        if (!grouped.has(row.group_key)) {
+          grouped.set(row.group_key, {
+            caption: row.caption || "",
+            sort_date: row.sort_date,
+            items: []
+          });
+        }
+        grouped.get(row.group_key).items.push({
+          id: row.id,
+          type: row.media_type,
+          url: "/gallery-media?id=" + row.id
+        });
+      }
+
+      return miniJson({
+        items: Array.from(grouped.values()).sort((a, b) => b.sort_date - a.sort_date)
+      });
+    }
+
     // Проверка прав администратора
     const role = await isAdmin(env, uid);
 
