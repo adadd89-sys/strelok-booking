@@ -1027,6 +1027,56 @@ async function handleCallback(env, query) {
   }
 }
 
+
+async function ensureGalleryTable(env) {
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS gallery_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id TEXT NOT NULL,
+    message_id TEXT NOT NULL,
+    group_key TEXT NOT NULL,
+    media_group_id TEXT,
+    file_id TEXT NOT NULL,
+    media_type TEXT NOT NULL,
+    caption TEXT,
+    sort_date INTEGER NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(chat_id,message_id)
+  )`).run();
+}
+
+async function saveGalleryPost(env, post) {
+  if (!env.GALLERY_CHANNEL_ID || String(post.chat?.id) !== String(env.GALLERY_CHANNEL_ID)) return;
+  let fileId = "";
+  let mediaType = "";
+  if (Array.isArray(post.photo) && post.photo.length) {
+    fileId = post.photo[post.photo.length - 1].file_id;
+    mediaType = "photo";
+  } else if (post.video?.file_id) {
+    fileId = post.video.file_id;
+    mediaType = "video";
+  } else if (post.animation?.file_id) {
+    fileId = post.animation.file_id;
+    mediaType = "video";
+  } else if (post.document?.mime_type?.startsWith("video/")) {
+    fileId = post.document.file_id;
+    mediaType = "video";
+  }
+  if (!fileId) return;
+  await ensureGalleryTable(env);
+  const groupKey = post.media_group_id
+    ? "album:" + String(post.media_group_id)
+    : "message:" + String(post.message_id);
+  await env.DB.prepare(`
+    INSERT OR IGNORE INTO gallery_items
+    (chat_id,message_id,group_key,media_group_id,file_id,media_type,caption,sort_date)
+    VALUES (?,?,?,?,?,?,?,?)
+  `).bind(
+    String(post.chat.id), String(post.message_id), groupKey,
+    post.media_group_id ? String(post.media_group_id) : null,
+    fileId, mediaType, post.caption || "", Number(post.date || Math.floor(Date.now()/1000))
+  ).run();
+}
+
 async function handleChannelPost(env, post) {
   const text = post.text || post.caption || "";
 
@@ -1768,7 +1818,23 @@ export default {
     }
 
     if(url.pathname==="/venue-photo"&&request.method==="GET"){const id=Number(url.searchParams.get("id"));if(!Number.isInteger(id)||id<1)return new Response("Not found",{status:404});const row=await env.DB.prepare("SELECT file_id FROM venue_photos WHERE id=?").bind(id).first();if(!row?.file_id)return new Response("Not found",{status:404});const f=await tg(env,"getFile",{file_id:row.file_id});if(!f.ok||!f.result?.file_path)return new Response("Photo unavailable",{status:502});const x=await fetch(`https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${f.result.file_path}`);if(!x.ok)return new Response("Photo unavailable",{status:502});return new Response(x.body,{headers:{"Content-Type":x.headers.get("Content-Type")||"image/jpeg","Cache-Control":"public, max-age=3600"}});}
-    if (url.pathname.startsWith("/api/")) {
+
+    if (url.pathname === "/gallery-media" && request.method === "GET") {
+      const id = Number(url.searchParams.get("id"));
+      if (!Number.isInteger(id) || id < 1) return new Response("Not found", {status:404});
+      await ensureGalleryTable(env);
+      const row = await env.DB.prepare("SELECT file_id FROM gallery_items WHERE id=?").bind(id).first();
+      if (!row?.file_id) return new Response("Not found", {status:404});
+      const file = await tg(env, "getFile", {file_id:row.file_id});
+      if (!file.ok || !file.result?.file_path) return new Response("Media unavailable", {status:502});
+      const media = await fetch(`https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${file.result.file_path}`);
+      if (!media.ok) return new Response("Media unavailable", {status:502});
+      return new Response(media.body, {headers:{
+        "Content-Type": media.headers.get("Content-Type") || "application/octet-stream",
+        "Cache-Control":"public, max-age=3600"
+      }});
+    }
+\n    if (url.pathname.startsWith("/api/")) {
   return miniAppApi(request, env, url);
 }
     if (url.pathname !== "/telegram") {
