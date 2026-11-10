@@ -579,7 +579,7 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
 
       showMessage(
         message,
-        "Заявка отправлена! Администратор свяжется с тобой для подтверждения."
+        "Заявка успешно отправлена! В скором времени с тобой свяжется администратор и уточнит детали."
       );
 
       $("orderForm").reset();
