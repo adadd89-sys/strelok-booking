@@ -307,13 +307,14 @@
     try {
       const data = await api("/api/bookings");
       state.bookings = Array.isArray(data.bookings) ? data.bookings : [];
+      const orderRequests = Array.isArray(data.orderRequests) ? data.orderRequests : [];
 
-      if (!state.bookings.length) {
+      if (!state.bookings.length && !orderRequests.length) {
         container.innerHTML = emptyMessage("У тебя пока нет бронирований.");
         return;
       }
 
-      container.innerHTML = state.bookings.map(item => {
+      const bookingCards = state.bookings.map(item => {
         const status = item.status || "active";
         const statusText = {
           active: "Активная запись",
@@ -324,7 +325,7 @@
         return `
           <div class="card">
             <span class="status">${escapeHtml(statusText)}</span>
-            <h3>${escapeHtml(item.title || item.game_title || "Игра")}</h3>
+            <h3>${escapeHtml(item.title || item.game_title || "Открытая игра")}</h3>
             <p class="muted">📅 ${formatDate(item.game_date)}</p>
             <p class="muted">🕒 ${escapeHtml(item.game_time || "")}</p>
             <p class="muted">👥 Участников: ${Number(item.participants || 1)}</p>
@@ -336,6 +337,22 @@
           </div>
         `;
       }).join("");
+
+      const orderCards = orderRequests.map(item => `
+        <div class="card">
+          <span class="status">${escapeHtml(item.status || "Новая")}</span>
+          <h3>Клиентская игра — ${escapeHtml(item.game_type || "Формат не указан")}</h3>
+          <p class="muted">📍 Площадка: ${escapeHtml(item.venue || "Не указана")}</p>
+          <p class="muted">📅 ${formatDate(item.game_date)}</p>
+          <p class="muted">🕒 ${escapeHtml(item.game_time || "")}</p>
+          <p class="muted">👥 Участников: ${Number(item.participants || 1)}</p>
+        </div>
+      `).join("");
+
+      container.innerHTML = [
+        bookingCards ? '<h3>Записи на открытые игры</h3>' + bookingCards : "",
+        orderCards ? '<h3>Заказанные клиентские игры</h3>' + orderCards : ""
+      ].filter(Boolean).join("");
 
     } catch (error) {
       console.error("loadBookings:", error);
