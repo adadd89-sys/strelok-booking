@@ -495,8 +495,7 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
   function updateOrderTimeOptions() {
     const dateInput = $("orderDate");
     const timeInput = $("orderTime");
-    const choices = $("orderTimeChoices");
-    if (!dateInput || !timeInput || !choices) return;
+    if (!dateInput || !timeInput) return;
 
     const now = moscowDateTimeParts();
     const today = `${now.year}-${now.month}-${now.day}`;
@@ -507,14 +506,16 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
     const selectedDate = dateInput.value;
     lastOrderDateValue = selectedDate;
     const previousTime = timeInput.value;
-    choices.replaceChildren();
+    timeInput.replaceChildren();
 
     if (!selectedDate) {
-      timeInput.value = "";
-      choices.innerHTML = '<p class="muted">Сначала выбери дату</p>';
+      timeInput.disabled = true;
+      timeInput.innerHTML = '<option value="">Сначала выбери дату</option>';
       return;
     }
 
+    timeInput.disabled = false;
+    timeInput.appendChild(new Option("Выбери время", ""));
     let firstMinute = 0;
     if (selectedDate === today) {
       const currentMinute = Number(now.hour) * 60 + Number(now.minute);
@@ -525,65 +526,30 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
       const hour = String(Math.floor(minute / 60)).padStart(2, "0");
       const mins = String(minute % 60).padStart(2, "0");
       const value = `${hour}:${mins}`;
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "time-choice" + (value === previousTime ? " active" : "");
-      button.dataset.timeValue = value;
-      button.textContent = value;
-      button.setAttribute("aria-pressed", value === previousTime ? "true" : "false");
-      button.setAttribute("onclick", "window.selectOrderTime(this)");
-      choices.appendChild(button);
+      timeInput.appendChild(new Option(value, value));
     }
 
-    if (!choices.children.length) {
-      choices.innerHTML = '<p class="muted">На сегодня свободных временных слотов нет</p>';
+    if (previousTime && Array.from(timeInput.options).some(option => option.value === previousTime)) {
+      timeInput.value = previousTime;
+    } else {
       timeInput.value = "";
-      return;
     }
 
-    if (previousTime && !Array.from(choices.querySelectorAll(".time-choice")).some(button => button.textContent === previousTime)) {
-      timeInput.value = "";
+    if (timeInput.options.length === 1) {
+      timeInput.disabled = true;
+      timeInput.innerHTML = '<option value="">На сегодня свободных слотов нет</option>';
     }
   }
 
-  // iOS Telegram WebView may not emit input/change consistently after dismissing
-  // the native date picker. Poll only for a changed date, not on every tick.
   function syncOrderDateValue() {
     const dateInput = $("orderDate");
-    const choices = $("orderTimeChoices");
-    if (!dateInput || !choices) return;
-
+    if (!dateInput) return;
     const currentValue = dateInput.value || "";
-    const needsOptions = currentValue
-      ? !choices.querySelector(".time-choice")
-      : choices.textContent.trim() !== "Сначала выбери дату";
-
-    if (currentValue !== lastOrderDateValue || needsOptions) updateOrderTimeOptions();
+    if (currentValue !== lastOrderDateValue) updateOrderTimeOptions();
   }
 
-  function selectOrderTime(button) {
-    const timeInput = $("orderTime");
-    const choices = $("orderTimeChoices");
-    if (!button || !timeInput || !choices || !button.dataset.timeValue) return;
-    timeInput.value = button.dataset.timeValue;
-    choices.querySelectorAll(".time-choice").forEach(item => {
-      const active = item === button;
-      item.classList.toggle("active", active);
-      item.setAttribute("aria-pressed", active ? "true" : "false");
-    });
-  }
-
-  // Expose selection globally and call it from each slot's inline handler.
-  // This is compatible with Telegram WebView variants that miss dynamically
-  // attached click listeners on nested scrolling containers.
-  window.selectOrderTime = selectOrderTime;
-
-  // Expose an explicit handler for native date controls in Telegram WebView.
+  // Keep date options synchronized across desktop and mobile browsers.
   window.updateOrderTimeOptions = updateOrderTimeOptions;
-
-  // Keep date restrictions fresh whenever the calendar is opened or edited.
-  // Telegram WebView can dispatch date-picker events differently across platforms.
-  // Delegate the events so the handler still works if the form is rendered later.
   document.addEventListener("input", event => {
     if (event.target?.id === "orderDate") updateOrderTimeOptions();
   }, true);
@@ -593,14 +559,8 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
   document.addEventListener("blur", event => {
     if (event.target?.id === "orderDate") updateOrderTimeOptions();
   }, true);
-  document.addEventListener("focusin", event => {
-    if (event.target?.id === "orderDate") updateOrderTimeOptions();
-  }, true);
-  document.addEventListener("click", event => {
-    if (event.target?.id === "orderTime") updateOrderTimeOptions();
-  }, true);
   updateOrderTimeOptions();
-  window.setInterval(syncOrderDateValue, 300);
+  window.setInterval(syncOrderDateValue, 500);
   document.addEventListener("pageshow", syncOrderDateValue);
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) syncOrderDateValue();
