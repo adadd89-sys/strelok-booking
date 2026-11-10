@@ -1189,7 +1189,7 @@ async function ensureVenueTables(env){
 }
 async function ensureGameFormatTables(env) {
   await env.DB.prepare("CREATE TABLE IF NOT EXISTS game_formats(slug TEXT PRIMARY KEY,name TEXT NOT NULL,description TEXT DEFAULT '',equipment TEXT DEFAULT '',sort_order INTEGER DEFAULT 0)").run();
-  const formats=[["airsoft","Страйкбол",1],["paintball","Пейнтбол",2],["reball","Ребол",3],["lasertag","Лазертаг",4]];
+  const formats=[["airsoft","Страйкбол",1],["paintball","Пейнтбол",2],["reball","Ребол",3],["lasertag","Лазертаг",4],["hydroball","Гидробол с орбизами",5]];
   for(const x of formats) await env.DB.prepare("INSERT OR IGNORE INTO game_formats(slug,name,sort_order) VALUES(?,?,?)").bind(x[0],x[1],x[2]).run();
 }
 async function miniAppApi(request, env, url) {
@@ -1375,7 +1375,7 @@ if(path.startsWith("/api/admin/venues/photo/")&&method==="DELETE"){if(!(await is
     // Информация о клубе
     if(path==="/api/game-formats"&&method==="GET"){await ensureGameFormatTables(env);const r=await env.DB.prepare("SELECT slug,name,description,equipment FROM game_formats ORDER BY sort_order").all();return miniJson({formats:r.results||[]});}
     if(path==="/api/admin/game-formats"&&method==="GET"){if(!(await isAdmin(env,uid)))return miniJson({error:"Нет доступа"},403);await ensureGameFormatTables(env);const r=await env.DB.prepare("SELECT slug,name,description,equipment FROM game_formats ORDER BY sort_order").all();return miniJson({formats:r.results||[]});}
-    if(path.startsWith("/api/admin/game-formats/")&&method==="PUT"){if(!(await isAdmin(env,uid)))return miniJson({error:"Нет доступа"},403);await ensureGameFormatTables(env);const slug=decodeURIComponent(path.split("/").pop()||"");const b=await readBody();if(!b||!["airsoft","paintball","reball","lasertag"].includes(slug))return miniJson({error:"Неверные данные"},400);const description=String(b.description||"").trim(),equipment=String(b.equipment||"").trim();if(description.length>5000||equipment.length>5000)return miniJson({error:"Текст не должен превышать 5000 символов"},400);await env.DB.prepare("UPDATE game_formats SET description=?,equipment=? WHERE slug=?").bind(description,equipment,slug).run();return miniJson({success:true});}
+    if(path.startsWith("/api/admin/game-formats/")&&method==="PUT"){if(!(await isAdmin(env,uid)))return miniJson({error:"Нет доступа"},403);await ensureGameFormatTables(env);const slug=decodeURIComponent(path.split("/").pop()||"");const b=await readBody();if(!b||!["airsoft","paintball","reball","lasertag","hydroball"].includes(slug))return miniJson({error:"Неверные данные"},400);const description=String(b.description||"").trim(),equipment=String(b.equipment||"").trim();if(description.length>5000||equipment.length>5000)return miniJson({error:"Текст не должен превышать 5000 символов"},400);await env.DB.prepare("UPDATE game_formats SET description=?,equipment=? WHERE slug=?").bind(description,equipment,slug).run();return miniJson({success:true});}
 
     if (path === "/api/club" && method === "GET") {
       const club = await env.DB.prepare(`
