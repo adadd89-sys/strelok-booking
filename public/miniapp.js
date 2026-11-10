@@ -533,6 +533,9 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
     timeSelect.disabled = false;
   }
 
+  // Expose an explicit handler for native date controls in Telegram WebView.
+  window.updateOrderTimeOptions = updateOrderTimeOptions;
+
   // Keep date restrictions fresh whenever the calendar is opened or edited.
   // Telegram WebView can dispatch date-picker events differently across platforms.
   // Delegate the events so the handler still works if the form is rendered later.
