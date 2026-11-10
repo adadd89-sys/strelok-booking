@@ -534,10 +534,20 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
   }
 
   // Keep date restrictions fresh whenever the calendar is opened or edited.
-  $("orderDate")?.addEventListener("focus", updateOrderTimeOptions);
-  $("orderDate")?.addEventListener("click", updateOrderTimeOptions);
-  $("orderDate")?.addEventListener("input", updateOrderTimeOptions);
-  $("orderDate")?.addEventListener("change", updateOrderTimeOptions);
+  // Telegram WebView can dispatch date-picker events differently across platforms.
+  // Delegate the events so the handler still works if the form is rendered later.
+  document.addEventListener("input", event => {
+    if (event.target?.id === "orderDate") updateOrderTimeOptions();
+  }, true);
+  document.addEventListener("change", event => {
+    if (event.target?.id === "orderDate") updateOrderTimeOptions();
+  }, true);
+  document.addEventListener("focusin", event => {
+    if (event.target?.id === "orderDate") updateOrderTimeOptions();
+  }, true);
+  document.addEventListener("click", event => {
+    if (event.target?.id === "orderTime") updateOrderTimeOptions();
+  }, true);
   updateOrderTimeOptions();
 
   // ЗАКАЗ ИГРЫ
