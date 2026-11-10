@@ -628,7 +628,7 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
       showMessage(message, "Нельзя выбрать дату раньше сегодняшней.", true);
       return;
     }
-    if (!/^(?:[01]\\d|2[0-3]):(?:00|30)$/.test(payload.game_time)) {
+    if (!/^(?:[01]\d|2[0-3]):(?:00|30)$/.test(payload.game_time)) {
       showMessage(message, "Выбери время с шагом 30 минут.", true);
       return;
     }
