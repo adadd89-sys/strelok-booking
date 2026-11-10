@@ -494,31 +494,24 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
 
   function updateOrderTimeOptions() {
     const dateInput = $("orderDate");
-    const timeSelect = $("orderTime");
-    if (!dateInput || !timeSelect) return;
+    const timeInput = $("orderTime");
+    const choices = $("orderTimeChoices");
+    if (!dateInput || !timeInput || !choices) return;
 
     const now = moscowDateTimeParts();
     const today = `${now.year}-${now.month}-${now.day}`;
     dateInput.min = today;
     dateInput.setAttribute("min", today);
-
-    // Clear any previously selected date that is now in the past.
-    if (dateInput.value && dateInput.value < today) {
-      dateInput.value = "";
-    }
+    if (dateInput.value && dateInput.value < today) dateInput.value = "";
 
     const selectedDate = dateInput.value;
     lastOrderDateValue = selectedDate;
-    const previousTime = timeSelect.value;
-    timeSelect.replaceChildren();
+    const previousTime = timeInput.value;
+    choices.replaceChildren();
 
     if (!selectedDate) {
-      const placeholder = new Option("Сначала выбери дату", "");
-      placeholder.disabled = true;
-      placeholder.selected = true;
-      timeSelect.add(placeholder);
-      // Keep the control available; the placeholder itself cannot be selected.
-      timeSelect.disabled = false;
+      timeInput.value = "";
+      choices.innerHTML = '<p class="muted">Сначала выбери дату</p>';
       return;
     }
 
@@ -531,19 +524,32 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
     for (let minute = firstMinute; minute < 24 * 60; minute += 30) {
       const hour = String(Math.floor(minute / 60)).padStart(2, "0");
       const mins = String(minute % 60).padStart(2, "0");
-      timeSelect.add(new Option(`${hour}:${mins}`, `${hour}:${mins}`));
+      const value = `${hour}:${mins}`;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "time-choice" + (value === previousTime ? " active" : "");
+      button.textContent = value;
+      button.setAttribute("aria-pressed", value === previousTime ? "true" : "false");
+      button.addEventListener("click", () => {
+        timeInput.value = value;
+        choices.querySelectorAll(".time-choice").forEach(item => {
+          const active = item === button;
+          item.classList.toggle("active", active);
+          item.setAttribute("aria-pressed", active ? "true" : "false");
+        });
+      });
+      choices.appendChild(button);
     }
 
-    if (!timeSelect.options.length) {
-      timeSelect.add(new Option("На сегодня свободных временных слотов нет", ""));
-      timeSelect.disabled = true;
+    if (!choices.children.length) {
+      choices.innerHTML = '<p class="muted">На сегодня свободных временных слотов нет</p>';
+      timeInput.value = "";
       return;
     }
 
-    if (previousTime && Array.from(timeSelect.options).some(option => option.value === previousTime)) {
-      timeSelect.value = previousTime;
+    if (previousTime && !Array.from(choices.querySelectorAll(".time-choice")).some(button => button.textContent === previousTime)) {
+      timeInput.value = "";
     }
-    timeSelect.disabled = false;
   }
 
   // iOS Telegram WebView may not emit input/change consistently after dismissing
