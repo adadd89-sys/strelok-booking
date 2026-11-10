@@ -1555,6 +1555,24 @@ if (!/^\d{2}:\d{2}$/.test(gameTime)) {
   return miniJson({ error: "Неверно указано время игры" }, 400);
 }
 
+const dateParts = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit"
+}).formatToParts(new Date());
+const todayMoscow = `${dateParts.find(p => p.type === "year").value}-${dateParts.find(p => p.type === "month").value}-${dateParts.find(p => p.type === "day").value}`;
+if (gameDate < todayMoscow) {
+  return miniJson({ error: "Нельзя выбрать дату раньше сегодняшней" }, 400);
+}
+if (!/^(?:[01]\d|2[0-3]):(?:00|30)$/.test(gameTime)) {
+  return miniJson({ error: "Время можно выбрать с интервалом 30 минут" }, 400);
+}
+const nowParts = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/Moscow", hour: "2-digit", minute: "2-digit", hourCycle: "h23"
+}).formatToParts(new Date());
+const currentMoscowTime = `${nowParts.find(p => p.type === "hour").value}:${nowParts.find(p => p.type === "minute").value}`;
+if (gameDate === todayMoscow && gameTime < currentMoscowTime) {
+  return miniJson({ error: "Нельзя выбрать время раньше текущего" }, 400);
+}
+
 if (!Number.isInteger(participants) || participants < 1 || participants > 100) {
   return miniJson({ error: "Количество участников должно быть от 1 до 100" }, 400);
 }
