@@ -1123,6 +1123,43 @@ async function saveGalleryPost(env, post) {
 async function handleChannelPost(env, post) {
   const text = post.text || post.caption || "";
 
+  // Добавляем кнопку Mini App под каждую новую публикацию основного канала.
+  const configuredChannel = env.POSTS_CHANNEL_ID || "@strelok_kzn";
+  const isBookingChannel =
+    String(post.chat?.id) === String(configuredChannel) ||
+    (String(configuredChannel).startsWith("@") &&
+     String(post.chat?.username || "").toLowerCase() === configuredChannel.slice(1).toLowerCase());
+
+  if (isBookingChannel && post.message_id) {
+    const existingRows = post.reply_markup?.inline_keyboard || [];
+    const hasBookingButton = existingRows.some(row =>
+      row.some(button =>
+        button.text === "🎮 БРОНИРОВАТЬ ИГРУ" ||
+        button.url === "https://t.me/StrelokBookingBot?startapp"
+      )
+    );
+
+    if (!hasBookingButton) {
+      const buttonResult = await tg(env, "editMessageReplyMarkup", {
+        chat_id: post.chat.id,
+        message_id: post.message_id,
+        reply_markup: {
+          inline_keyboard: [
+            ...existingRows,
+            [{
+              text: "🎮 БРОНИРОВАТЬ ИГРУ",
+              url: "https://t.me/StrelokBookingBot?startapp"
+            }]
+          ]
+        }
+      });
+
+      if (!buttonResult?.ok) {
+        console.error("Could not add booking button to channel post:", buttonResult);
+      }
+    }
+  }
+
   // Обрабатываем только посты, в названии/тексте которых есть нужный маркер открытой игры.
   // Регистр не важен; совпадение — отдельное слово, а не часть другого слова.
   const triggerPattern = /(?:^|[^\\p{L}\\p{N}_])(?:ВОСКРЕСКА|ВЕЧЕРКА)(?=$|[^\\p{L}\\p{N}_])/iu;
