@@ -513,8 +513,11 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
     timeSelect.replaceChildren();
 
     if (!selectedDate) {
-      timeSelect.add(new Option("Сначала выбери дату", ""));
-      // Keep the control tappable on iPhone; it will refresh as soon as a date appears.
+      const placeholder = new Option("Сначала выбери дату", "");
+      placeholder.disabled = true;
+      placeholder.selected = true;
+      timeSelect.add(placeholder);
+      // Keep the control available; the placeholder itself cannot be selected.
       timeSelect.disabled = false;
       return;
     }
