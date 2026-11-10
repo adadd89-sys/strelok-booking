@@ -1785,7 +1785,9 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
-    await publishScheduledOpenGamePost(env);\n\n    const due = await env.DB.prepare(
+    await publishScheduledOpenGamePost(env);
+
+    const due = await env.DB.prepare(
       `SELECT r.id,r.reminder_type,b.telegram_id
        FROM reminders r
        JOIN bookings b ON b.id=r.booking_id
