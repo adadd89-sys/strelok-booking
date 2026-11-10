@@ -476,7 +476,49 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
     typeSelect.disabled = !types[venue];
   }
 
-  $("orderVenue")?.addEventListener("change", updateOrderTypes);
+  $("orderVenue")?.addEventListener("change", updateOrderTypes);\n  $("orderDate")?.addEventListener("change", updateOrderTimeOptions);\n  updateOrderTimeOptions();
+
+
+  function moscowDateTimeParts() {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Moscow", year: "numeric", month: "2-digit",
+      day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23"
+    }).formatToParts(new Date());
+    return Object.fromEntries(parts.map(part => [part.type, part.value]));
+  }
+
+  function updateOrderTimeOptions() {
+    const dateInput = $("orderDate");
+    const timeSelect = $("orderTime");
+    if (!dateInput || !timeSelect) return;
+    const now = moscowDateTimeParts();
+    const today = `${now.year}-${now.month}-${now.day}`;
+    dateInput.min = today;
+    if (dateInput.value && dateInput.value < today) dateInput.value = "";
+    const selectedDate = dateInput.value;
+    timeSelect.innerHTML = "";
+    if (!selectedDate) {
+      timeSelect.add(new Option("Сначала выбери дату", ""));
+      timeSelect.disabled = true;
+      return;
+    }
+    let firstMinute = 0;
+    if (selectedDate === today) {
+      const currentMinute = Number(now.hour) * 60 + Number(now.minute);
+      firstMinute = Math.ceil(currentMinute / 30) * 30;
+    }
+    for (let minute = firstMinute; minute < 24 * 60; minute += 30) {
+      const hour = String(Math.floor(minute / 60)).padStart(2, "0");
+      const mins = String(minute % 60).padStart(2, "0");
+      timeSelect.add(new Option(`${hour}:${mins}`, `${hour}:${mins}`));
+    }
+    if (!timeSelect.options.length) {
+      timeSelect.add(new Option("На сегодня свободных временных слотов нет", ""));
+      timeSelect.disabled = true;
+      return;
+    }
+    timeSelect.disabled = false;
+  }
 
   // ЗАКАЗ ИГРЫ
 
@@ -509,11 +551,20 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
       return;
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    if (new Date(payload.game_date + "T00:00:00") < today) {
-      showMessage(message, "Нельзя выбрать прошедшую дату.", true);
+    const now = moscowDateTimeParts();
+    const today = `${now.year}-${now.month}-${now.day}`;
+    if (payload.game_date < today) {
+      showMessage(message, "Нельзя выбрать дату раньше сегодняшней.", true);
+      return;
+    }
+    if (!/^(?:[01]\\d|2[0-3]):(?:00|30)$/.test(payload.game_time)) {
+      showMessage(message, "Выбери время с шагом 30 минут.", true);
+      return;
+    }
+    const currentTime = `${now.hour}:${now.minute}`;
+    if (payload.game_date === today && payload.game_time < currentTime) {
+      showMessage(message, "Нельзя выбрать время раньше текущего.", true);
+      updateOrderTimeOptions();
       return;
     }
 
