@@ -56,6 +56,15 @@
     return escapeHtml(value).replace(/\r?\n/g, "<br>");
   }
 
+  function formatParagraphs(value) {
+    return String(value ?? "")
+      .trim()
+      .split(/\r?\n\s*\r?\n/)
+      .filter(paragraph => paragraph.trim())
+      .map(paragraph => `<p class="game-description-paragraph">${escapeHtml(paragraph.trim()).replace(/\r?\n/g, "<br>")}</p>`)
+      .join("");
+  }
+
   function showMessage(container, message, isError = false) {
     if (!container) return;
 
@@ -186,7 +195,7 @@
             <p class="muted">🕒 ${escapeHtml(time || "Время уточняется")}</p>
             <p class="muted">👥 Уже записалось: <b>${booked}</b></p>
             <p class="muted">💰 Цена: <b class="orange">${price}</b></p>
-            ${game.description ? `<p class="muted">${escapeHtml(game.description)}</p>` : ""}
+            ${game.description ? `<div class="muted game-description">${formatParagraphs(game.description)}</div>` : ""}
             <button class="primary" data-book-game="${id}">Записаться</button>
           </div>
         `;
