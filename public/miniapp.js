@@ -556,16 +556,14 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
   // the native date picker. Poll only for a changed date, not on every tick.
   function syncOrderDateValue() {
     const dateInput = $("orderDate");
-    const timeSelect = $("orderTime");
-    if (!dateInput || !timeSelect) return;
+    const choices = $("orderTimeChoices");
+    if (!dateInput || !choices) return;
 
     const currentValue = dateInput.value || "";
     const needsOptions = currentValue
-      ? (!timeSelect.options.length || (timeSelect.options.length === 1 && !timeSelect.options[0].value))
-      : (timeSelect.options.length !== 1 || timeSelect.options[0]?.textContent !== "Сначала выбери дату");
+      ? !choices.querySelector(".time-choice")
+      : choices.textContent.trim() !== "Сначала выбери дату";
 
-    // Some WebViews fire date events before the native picker commits its value.
-    // Also rebuild if the date is already present but the time list is still a placeholder.
     if (currentValue !== lastOrderDateValue || needsOptions) updateOrderTimeOptions();
   }
 
