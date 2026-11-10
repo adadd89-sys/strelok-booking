@@ -110,6 +110,11 @@
     if (!list) return;
     list.innerHTML = emptyMessage("Загружаем галерею...");
     try {
+      // Получаем права пользователя прямо при открытии галереи,
+      // чтобы администратору не приходилось сначала заходить в админку.
+      const access = await api("/api/admin");
+      state.admin = Boolean(access.isAdmin);
+
       const data = await api("/api/gallery?type=" + encodeURIComponent(galleryFilter));
       const groups = Array.isArray(data.items) ? data.items : [];
       if (!groups.length) {
