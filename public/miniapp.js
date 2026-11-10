@@ -117,9 +117,15 @@
         return;
       }
       list.innerHTML = '<div class="gallery-grid">' + groups.map(group => {
-        const media = group.items.map(item => item.type === "video"
-          ? `<video controls playsinline preload="metadata" src="${escapeHtml(item.url)}"></video>`
-          : `<img loading="lazy" src="${escapeHtml(item.url)}" alt="Фото с игры">`).join("");
+        const media = group.items.map(item => {
+          const player = item.type === "video"
+            ? `<video controls playsinline preload="metadata" src="${escapeHtml(item.url)}"></video>`
+            : `<img loading="lazy" src="${escapeHtml(item.url)}" alt="Фото с игры">`;
+          const remove = state.admin
+            ? `<button class="secondary" data-delete-gallery-item="${Number(item.id)}" style="margin-top:8px;color:#ff7777">🗑 Удалить ${item.type === "video" ? "видео" : "фото"}</button>`
+            : "";
+          return `<div class="gallery-media-item">${player}${remove}</div>`;
+        }).join("");
         return `<article class="gallery-card">${group.items.length > 1 ? `<div class="gallery-album">${media}</div>` : media}${group.caption ? `<div class="gallery-caption">${escapeHtml(group.caption)}</div>` : ""}</article>`;
       }).join("") + "</div>";
     } catch (error) {
@@ -883,6 +889,22 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
     const o=event.target.closest("[data-open-venue]");if(o){renderVenueDetails(o.dataset.openVenue);return;}
     if(event.target.closest("[data-venues-back]")){state.activeVenue=null;$("venueDetails").hidden=true;$("venuesList").hidden=false;return;}
     const del=event.target.closest("[data-delete-venue-photo]");if(del){try{await api("/api/admin/venues/photo/"+del.dataset.deleteVenuePhoto,{method:"DELETE"});await loadAdminVenues();await loadVenues();}catch(e){alert(e.message);}return;}
+    const deleteGalleryButton = event.target.closest("[data-delete-gallery-item]");
+    if (deleteGalleryButton) {
+      const mediaId = Number(deleteGalleryButton.dataset.deleteGalleryItem);
+      if (!Number.isInteger(mediaId) || mediaId < 1) return;
+      if (!confirm("Удалить эту публикацию из галереи? Оригинал в Telegram-канале останется.")) return;
+      deleteGalleryButton.disabled = true;
+      try {
+        await api("/api/admin/gallery/" + mediaId, { method: "DELETE" });
+        await loadGallery();
+      } catch (error) {
+        alert("Не удалось удалить: " + error.message);
+        deleteGalleryButton.disabled = false;
+      }
+      return;
+    }
+
     const galleryButton = event.target.closest("#checkGalleryChannel");
     if (galleryButton) {
       const result = $("galleryCheckResult");
