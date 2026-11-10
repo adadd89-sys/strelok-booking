@@ -491,34 +491,53 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
     const dateInput = $("orderDate");
     const timeSelect = $("orderTime");
     if (!dateInput || !timeSelect) return;
+
     const now = moscowDateTimeParts();
     const today = `${now.year}-${now.month}-${now.day}`;
     dateInput.min = today;
-    if (dateInput.value && dateInput.value < today) dateInput.value = "";
+    dateInput.setAttribute("min", today);
+
+    // Clear any previously selected date that is now in the past.
+    if (dateInput.value && dateInput.value < today) {
+      dateInput.value = "";
+    }
+
     const selectedDate = dateInput.value;
-    timeSelect.innerHTML = "";
+    timeSelect.replaceChildren();
+
     if (!selectedDate) {
       timeSelect.add(new Option("Сначала выбери дату", ""));
       timeSelect.disabled = true;
       return;
     }
+
     let firstMinute = 0;
     if (selectedDate === today) {
       const currentMinute = Number(now.hour) * 60 + Number(now.minute);
       firstMinute = Math.ceil(currentMinute / 30) * 30;
     }
+
     for (let minute = firstMinute; minute < 24 * 60; minute += 30) {
       const hour = String(Math.floor(minute / 60)).padStart(2, "0");
       const mins = String(minute % 60).padStart(2, "0");
       timeSelect.add(new Option(`${hour}:${mins}`, `${hour}:${mins}`));
     }
+
     if (!timeSelect.options.length) {
       timeSelect.add(new Option("На сегодня свободных временных слотов нет", ""));
       timeSelect.disabled = true;
       return;
     }
+
     timeSelect.disabled = false;
   }
+
+  // Keep date restrictions fresh whenever the calendar is opened or edited.
+  $("orderDate")?.addEventListener("focus", updateOrderTimeOptions);
+  $("orderDate")?.addEventListener("click", updateOrderTimeOptions);
+  $("orderDate")?.addEventListener("input", updateOrderTimeOptions);
+  $("orderDate")?.addEventListener("change", updateOrderTimeOptions);
+  updateOrderTimeOptions();
 
   // ЗАКАЗ ИГРЫ
 
