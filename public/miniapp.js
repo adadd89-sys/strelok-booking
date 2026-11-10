@@ -476,7 +476,8 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
     typeSelect.disabled = !types[venue];
   }
 
-  $("orderVenue")?.addEventListener("change", updateOrderTypes);\n  $("orderDate")?.addEventListener("change", updateOrderTimeOptions);\n  updateOrderTimeOptions();
+  $("orderVenue")?.addEventListener("change", updateOrderTypes);
+  $("orderDate")?.addEventListener("change", updateOrderTimeOptions);
 
 
   function moscowDateTimeParts() {
