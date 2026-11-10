@@ -1852,7 +1852,7 @@ export default {
         "Cache-Control":"public, max-age=3600"
       }});
     }
-\n    if (url.pathname.startsWith("/api/")) {
+    if (url.pathname.startsWith("/api/")) {
   return miniAppApi(request, env, url);
 }
     if (url.pathname !== "/telegram") {
