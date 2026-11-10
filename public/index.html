@@ -583,7 +583,7 @@
 
           <div class="field">
             <label>Желаемая дата</label>
-            <input id="orderDate" type="date" min="" required>
+            <input id="orderDate" type="date" min="" required oninput="window.updateOrderTimeOptions && window.updateOrderTimeOptions()" onchange="window.updateOrderTimeOptions && window.updateOrderTimeOptions()">
           </div>
 
           <div class="field">
@@ -805,6 +805,6 @@
     ].join("-");
   </script>
 
-  <script src="/miniapp.js?v=20261110-date-time-fix3"></script>
+  <script src="/miniapp.js?v=20261110-date-time-fix4"></script>
 </body>
 </html>
