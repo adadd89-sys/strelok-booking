@@ -95,7 +95,7 @@
   }
 
   // ОПИСАНИЕ ФОРМАТОВ ИГР
-  const gameFormatNames = {airsoft:"Страйкбол",paintball:"Пейнтбол",reball:"Ребол",lasertag:"Лазертаг"};
+  const gameFormatNames = {airsoft:"Страйкбол",paintball:"Пейнтбол",reball:"Ребол",lasertag:"Лазертаг",hydroball:"Гидробол с орбизами"};
   let gameFormats = [];
   let activeGameFormat = null;
 
@@ -412,9 +412,9 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
     if (!typeSelect) return;
 
     const types = {
-      "Бункер": ["страйкбол", "лазертаг"],
-      "Адмирал": ["страйкбол", "ребол", "лазертаг"],
-      "Глубокое озеро": ["страйкбол", "пейнтбол", "лазертаг"]
+      "Бункер": ["страйкбол", "лазертаг", "гидробол с орбизами"],
+      "Адмирал": ["страйкбол", "ребол", "лазертаг", "гидробол с орбизами"],
+      "Глубокое озеро": ["страйкбол", "пейнтбол", "лазертаг", "гидробол с орбизами"]
     };
 
     typeSelect.innerHTML = '<option value="">Выбери вид игры</option>';
