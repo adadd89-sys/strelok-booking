@@ -418,6 +418,15 @@
     #home .price-value { color: var(--green); font-size: 19px; font-weight: 900; margin-bottom: 4px; }
     #home .price-note { color: var(--text); }
 
+    /* Внутренняя форма записи без системных браузерных окон */
+    .booking-modal[hidden] { display: none !important; }
+    .booking-modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 18px; background: rgba(0,0,0,.78); }
+    .booking-dialog { width: 100%; max-width: 440px; max-height: 90vh; overflow-y: auto; background: #151c18; border: 1px solid #405044; border-radius: 18px; padding: 20px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+    .booking-dialog h3 { margin: 0 0 8px; font-family: 'Oswald','Inter',sans-serif; }
+    .booking-dialog .field { margin: 12px 0; }
+    .booking-close { float: right; background: transparent; border: 0; color: var(--muted); font-size: 25px; padding: 0 4px; }
+    #bookingMessage { min-height: 20px; margin-top: 10px; }
+    
     @media (prefers-reduced-motion: reduce) {
       *,*::before,*::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
     }
@@ -662,6 +671,30 @@
     </section>
   </main>
 
+  <div id="bookingModal" class="booking-modal" hidden>
+    <div class="booking-dialog" role="dialog" aria-modal="true" aria-labelledby="bookingTitle">
+      <button class="booking-close" type="button" data-booking-close aria-label="Закрыть">×</button>
+      <h3 id="bookingTitle">Запись на открытую игру</h3>
+      <p class="muted">Заполни данные для записи на игру.</p>
+      <form id="bookingForm">
+        <div class="field">
+          <label>Имя и фамилия</label>
+          <input name="organizer_name" type="text" maxlength="150" placeholder="Как тебя записать?" required>
+        </div>
+        <div class="field">
+          <label>Номер телефона</label>
+          <input name="phone" type="tel" maxlength="30" placeholder="+7..." required>
+        </div>
+        <div class="field">
+          <label>Количество участников</label>
+          <input name="participants" type="number" min="1" max="100" value="1" required>
+        </div>
+        <button class="primary" type="submit">Отправить заявку</button>
+        <div id="bookingMessage" class="muted" aria-live="polite"></div>
+      </form>
+    </div>
+  </div>
+
   <nav class="nav">
     <button class="active" data-page="home" onclick="showPage('home')"><span>⌂</span>Главная</button>
     <button data-page="games" onclick="showPage('games')"><span>🎯</span>Игры</button>
@@ -756,6 +789,6 @@
     ].join("-");
   </script>
 
-  <script src="/miniapp.js?v=20261110-22"></script>
+  <script src="/miniapp.js?v=20261110-23"></script>
 </body>
 </html>
