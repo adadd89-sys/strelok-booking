@@ -472,16 +472,16 @@ async function handleMessage(env, msg) {
     const post = await tg(env, "sendMessage", {
       chat_id: channelId,
       text:
-        "🎯 <b>СТРЕЛОК | БРОНИРОВАНИЕ ИГР</b>\\n\\n" +
-        "Выбирай открытую игру или заказывай игру для своей компании прямо в Telegram.\\n\\n" +
-        "📅 Просматривай расписание и количество свободных мест.\\n" +
-        "📝 Оставляй заявку на участие или бронирование.\\n\\n" +
+        "🎯 <b>СТРЕЛОК | БРОНИРОВАНИЕ ИГР</b>\n\n" +
+        "Выбирай открытую игру или заказывай игру для своей компании прямо в Telegram.\n\n" +
+        "📅 Просматривай расписание и количество свободных мест.\n" +
+        "📝 Оставляй заявку на участие или бронирование.\n\n" +
         "Нажми кнопку ниже, чтобы перейти в систему бронирования.",
       parse_mode: "HTML",
       reply_markup: {
         inline_keyboard: [[{
           text: "🎮 БРОНИРОВАТЬ ИГРУ",
-          web_app: { url: "https://strelok-booking1.sergey-adadd89.workers.dev/" }
+          url: "https://t.me/StrelokBookingBot?startapp"
         }]]
       },
       disable_web_page_preview: true
@@ -489,7 +489,7 @@ async function handleMessage(env, msg) {
 
     if (!post?.ok) {
       console.error("Booking button post failed:", post);
-      return send(env, chatId, "❌ Не удалось опубликовать пост. Проверь права бота в канале.");
+      return send(env, chatId, "❌ Не удалось опубликовать пост. Проверь настройки канала.");
     }
 
     const pinned = await tg(env, "pinChatMessage", {
@@ -503,7 +503,7 @@ async function handleMessage(env, msg) {
       return send(env, chatId, "⚠️ Пост с кнопкой опубликован, но закрепить его не удалось. Закрепи его вручную в канале.");
     }
 
-    return send(env, chatId, "✅ Пост с кнопкой «БРОНИРОВАТЬ ИГРУ» опубликован и закреплён в @strelok_kzn.");
+    return send(env, chatId, "✅ Пост с кнопкой-ссылкой «БРОНИРОВАТЬ ИГРУ» опубликован и закреплён в @strelok_kzn.");
   }
 
   if (text === "/testchannel") {
