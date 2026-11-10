@@ -1969,6 +1969,8 @@ export default {
       }
 
       if (update.channel_post) {
+        // Сначала сохраняем фото и видео из канала галереи.
+        await saveGalleryPost(env, update.channel_post);
         await handleChannelPost(env, update.channel_post);
       }
 
