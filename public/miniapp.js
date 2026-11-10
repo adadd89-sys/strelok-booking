@@ -847,7 +847,10 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
       case "gameFormats":
         loadGameFormats();
         break;
-      case "gallery":\n        loadGallery();\n        break;\n      case "bookings":
+      case "gallery":
+        loadGallery();
+        break;
+      case "bookings":
         loadBookings();
         break;
       case "profile":
@@ -865,7 +868,15 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
 
   // ОБРАБОТЧИКИ КНОПОК
 
-  document.addEventListener("click", event => {\n    const filter = event.target.closest("[data-gallery-filter]");\n    if (!filter) return;\n    galleryFilter = filter.dataset.galleryFilter;\n    document.querySelectorAll("[data-gallery-filter]").forEach(button => button.classList.toggle("active", button === filter));\n    loadGallery();\n  });\n\n  document.addEventListener("submit", event => {
+  document.addEventListener("click", event => {
+    const filter = event.target.closest("[data-gallery-filter]");
+    if (!filter) return;
+    galleryFilter = filter.dataset.galleryFilter;
+    document.querySelectorAll("[data-gallery-filter]").forEach(button => button.classList.toggle("active", button === filter));
+    loadGallery();
+  });
+
+  document.addEventListener("submit", event => {
     if (event.target?.id === "bookingForm") submitBooking(event);
     if (event.target?.id === "clubInfoForm") saveClubInfo(event);
     if (event.target?.matches("[data-venue-form]")) saveVenue(event);
