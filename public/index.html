@@ -405,6 +405,19 @@
     .header .logo { font-size: 23px; }
     #home .hero h1 { letter-spacing: 1px; }
 
+
+    /* Раскрывающийся прайс на главном экране */
+    #home .price-list { display: grid; gap: 9px; margin: 0 0 22px; }
+    #home .price-item { background: linear-gradient(145deg,#19231b,#121914); border: 1px solid #344238; border-radius: 13px; overflow: hidden; }
+    #home .price-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px; color: var(--text); background: transparent; border: 0; text-align: left; }
+    #home .price-toggle strong { font-family: 'Russo One','Oswald',sans-serif; font-size: 14px; font-weight: 400; letter-spacing: .3px; }
+    #home .price-toggle .price-arrow { color: var(--green); font-size: 18px; transition: transform .2s ease; }
+    #home .price-item.open .price-arrow { transform: rotate(180deg); }
+    #home .price-details { display: none; padding: 0 15px 15px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+    #home .price-item.open .price-details { display: block; }
+    #home .price-value { color: var(--green); font-size: 19px; font-weight: 900; margin-bottom: 4px; }
+    #home .price-note { color: var(--text); }
+
     @media (prefers-reduced-motion: reduce) {
       *,*::before,*::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
     }
@@ -423,6 +436,40 @@
         <small>КЛУБ АКТИВНОГО ОТДЫХА</small>
         <h1>ТВОЯ ИГРА.<br>ТВОИ ПРАВИЛА.</h1>
         <p>Выбирай игру, собирай команду и выходи на поле.</p>
+      </div>
+
+      <div class="section-title">💰 Цены на игры</div>
+      <div class="price-list" id="homePriceList">
+        <div class="price-item">
+          <button class="price-toggle" type="button" aria-expanded="false" onclick="toggleHomePrice(this)">
+            <strong>Страйкбол</strong><span class="price-arrow">⌄</span>
+          </button>
+          <div class="price-details"><div class="price-value">2 500 ₽ с человека</div><div class="price-note">Минимум 8 игроков · С 14 лет</div></div>
+        </div>
+        <div class="price-item">
+          <button class="price-toggle" type="button" aria-expanded="false" onclick="toggleHomePrice(this)">
+            <strong>Пейнтбол</strong><span class="price-arrow">⌄</span>
+          </button>
+          <div class="price-details"><div class="price-value">От 2 000 ₽ с человека</div><div class="price-note">Стоимость зависит от количества шаров · Минимум 6 игроков · С 14 лет</div></div>
+        </div>
+        <div class="price-item">
+          <button class="price-toggle" type="button" aria-expanded="false" onclick="toggleHomePrice(this)">
+            <strong>Ребол</strong><span class="price-arrow">⌄</span>
+          </button>
+          <div class="price-details"><div class="price-value">2 500 ₽ с человека</div><div class="price-note">Минимум 6 игроков</div></div>
+        </div>
+        <div class="price-item">
+          <button class="price-toggle" type="button" aria-expanded="false" onclick="toggleHomePrice(this)">
+            <strong>Лазертаг</strong><span class="price-arrow">⌄</span>
+          </button>
+          <div class="price-details"><div class="price-value">1 600 ₽ с человека</div><div class="price-note">Минимум 10 игроков</div></div>
+        </div>
+        <div class="price-item">
+          <button class="price-toggle" type="button" aria-expanded="false" onclick="toggleHomePrice(this)">
+            <strong>Гидробол с орбизами</strong><span class="price-arrow">⌄</span>
+          </button>
+          <div class="price-details"><div class="price-value">1 800 ₽ с человека</div><div class="price-note">Минимум 10 игроков</div></div>
+        </div>
       </div>
 
       <div class="section-title">Выбери направление</div>
@@ -650,6 +697,19 @@
       typeSelect.disabled = types.length === 0;
     });
 
+    function toggleHomePrice(button) {
+      const item = button.closest(".price-item");
+      const willOpen = !item.classList.contains("open");
+      document.querySelectorAll("#homePriceList .price-item").forEach(el => {
+        el.classList.remove("open");
+        el.querySelector(".price-toggle")?.setAttribute("aria-expanded", "false");
+      });
+      if (willOpen) {
+        item.classList.add("open");
+        button.setAttribute("aria-expanded", "true");
+      }
+    }
+
     function showPage(page) {
       document.querySelectorAll(".page").forEach(el => el.classList.remove("active"));
       document.getElementById(page)?.classList.add("active");
@@ -691,6 +751,6 @@
     ].join("-");
   </script>
 
-  <script src="/miniapp.js?v=20261110-18"></script>
+  <script src="/miniapp.js?v=20261110-19"></script>
 </body>
 </html>
