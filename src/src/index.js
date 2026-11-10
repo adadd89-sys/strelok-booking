@@ -463,6 +463,49 @@ async function handleMessage(env, msg) {
      ON CONFLICT(telegram_id) DO NOTHING`
   ).bind(String(userId)).run();
 
+  if (text === "/publishbookingbutton") {
+    if (!(await isAdmin(env, userId))) {
+      return send(env, chatId, "Недостаточно прав.");
+    }
+
+    const channelId = env.POSTS_CHANNEL_ID || "@strelok_kzn";
+    const post = await tg(env, "sendMessage", {
+      chat_id: channelId,
+      text:
+        "🎯 <b>СТРЕЛОК | БРОНИРОВАНИЕ ИГР</b>\\n\\n" +
+        "Выбирай открытую игру или заказывай игру для своей компании прямо в Telegram.\\n\\n" +
+        "📅 Просматривай расписание и количество свободных мест.\\n" +
+        "📝 Оставляй заявку на участие или бронирование.\\n\\n" +
+        "Нажми кнопку ниже, чтобы перейти в систему бронирования.",
+      parse_mode: "HTML",
+      reply_markup: {
+        inline_keyboard: [[{
+          text: "🎮 БРОНИРОВАТЬ ИГРУ",
+          web_app: { url: "https://strelok-booking1.sergey-adadd89.workers.dev/" }
+        }]]
+      },
+      disable_web_page_preview: true
+    });
+
+    if (!post?.ok) {
+      console.error("Booking button post failed:", post);
+      return send(env, chatId, "❌ Не удалось опубликовать пост. Проверь права бота в канале.");
+    }
+
+    const pinned = await tg(env, "pinChatMessage", {
+      chat_id: channelId,
+      message_id: post.result.message_id,
+      disable_notification: true
+    });
+
+    if (!pinned?.ok) {
+      console.error("Booking button pin failed:", pinned);
+      return send(env, chatId, "⚠️ Пост с кнопкой опубликован, но закрепить его не удалось. Закрепи его вручную в канале.");
+    }
+
+    return send(env, chatId, "✅ Пост с кнопкой «БРОНИРОВАТЬ ИГРУ» опубликован и закреплён в @strelok_kzn.");
+  }
+
   if (text === "/testchannel") {
     if (!(await isAdmin(env, userId))) {
       return send(env, chatId, "Недостаточно прав.");
