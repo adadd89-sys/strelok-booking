@@ -1010,7 +1010,10 @@ async function handleCallback(env, query) {
 async function handleChannelPost(env, post) {
   const text = post.text || post.caption || "";
 
-  if (!text.toLowerCase().includes("#открытаяигра")) return;
+  // Обрабатываем только посты, в названии/тексте которых есть нужный маркер открытой игры.
+  // Регистр не важен; совпадение — отдельное слово, а не часть другого слова.
+  const triggerPattern = /(?:^|[^\\p{L}\\p{N}_])(?:ВОСКРЕСКА|ВЕЧЕРКА)(?=$|[^\\p{L}\\p{N}_])/iu;
+  if (!triggerPattern.test(text)) return;
 
   const parsed = parseGame(text);
 
@@ -1028,7 +1031,7 @@ async function handleChannelPost(env, post) {
       await send(
         env,
         id,
-        "⚠️ Найден пост с #открытаяигра, но не удалось распознать дату или время.\nУкажи дату в формате ДД.ММ.ГГГГ и время ЧЧ:ММ."
+        "⚠️ Найден пост с названием «ВОСКРЕСКА» или «ВЕЧЕРКА», но не удалось распознать дату или время.\nУкажи дату в формате ДД.ММ.ГГГГ и время ЧЧ:ММ."
       );
     }
     return;
