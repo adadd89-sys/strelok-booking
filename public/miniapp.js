@@ -488,6 +488,8 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
     return Object.fromEntries(parts.map(part => [part.type, part.value]));
   }
 
+  let lastOrderDateValue = null;
+
   function updateOrderTimeOptions() {
     const dateInput = $("orderDate");
     const timeSelect = $("orderTime");
@@ -504,11 +506,14 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
     }
 
     const selectedDate = dateInput.value;
+    lastOrderDateValue = selectedDate;
+    const previousTime = timeSelect.value;
     timeSelect.replaceChildren();
 
     if (!selectedDate) {
       timeSelect.add(new Option("Сначала выбери дату", ""));
-      timeSelect.disabled = true;
+      // Keep the control tappable on iPhone; it will refresh as soon as a date appears.
+      timeSelect.disabled = false;
       return;
     }
 
@@ -530,7 +535,17 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
       return;
     }
 
+    if (previousTime && Array.from(timeSelect.options).some(option => option.value === previousTime)) {
+      timeSelect.value = previousTime;
+    }
     timeSelect.disabled = false;
+  }
+
+  // iOS Telegram WebView may not emit input/change consistently after dismissing
+  // the native date picker. Poll only for a changed date, not on every tick.
+  function syncOrderDateValue() {
+    const currentValue = $("orderDate")?.value ?? "";
+    if (currentValue !== lastOrderDateValue) updateOrderTimeOptions();
   }
 
   // Expose an explicit handler for native date controls in Telegram WebView.
@@ -552,6 +567,11 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
     if (event.target?.id === "orderTime") updateOrderTimeOptions();
   }, true);
   updateOrderTimeOptions();
+  window.setInterval(syncOrderDateValue, 300);
+  document.addEventListener("pageshow", syncOrderDateValue);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) syncOrderDateValue();
+  });
 
   // ЗАКАЗ ИГРЫ
 
