@@ -531,9 +531,7 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
       button.dataset.timeValue = value;
       button.textContent = value;
       button.setAttribute("aria-pressed", value === previousTime ? "true" : "false");
-      // Attach selection directly to each slot. This avoids delegated-event
-      // quirks in some iOS Telegram WebView versions.
-      button.addEventListener("click", () => selectOrderTime(button));
+      button.setAttribute("onclick", "window.selectOrderTime(this)");
       choices.appendChild(button);
     }
 
@@ -574,6 +572,11 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
       item.setAttribute("aria-pressed", active ? "true" : "false");
     });
   }
+
+  // Expose selection globally and call it from each slot's inline handler.
+  // This is compatible with Telegram WebView variants that miss dynamically
+  // attached click listeners on nested scrolling containers.
+  window.selectOrderTime = selectOrderTime;
 
   // Expose an explicit handler for native date controls in Telegram WebView.
   window.updateOrderTimeOptions = updateOrderTimeOptions;
