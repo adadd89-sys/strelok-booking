@@ -1635,6 +1635,91 @@ if (!phone) {
 }
 
 
+
+async function publishScheduledOpenGamePost(env) {
+  const channelId = env.POSTS_CHANNEL_ID || "@strelok_kzn";
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Moscow",
+    weekday: "short",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(new Date());
+  const p = Object.fromEntries(parts.map(x => [x.type, x.value]));
+  const weekday = p.weekday;
+  const hour = Number(p.hour);
+  const minute = Number(p.minute);
+
+  // Cron runs every 15 minutes; publish only during the first quarter-hour after 10:00 MSK.
+  if (hour !== 10 || minute >= 15) return;
+  const isEvening = weekday === "Mon";
+  const isSunday = weekday === "Thu";
+  if (!isEvening && !isSunday) return;
+
+  const offset = isEvening ? 2 : 3;
+  const date = new Date(Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day) + offset));
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const year = date.getUTCFullYear();
+  const gameDate = `${year}-${month}-${day}`;
+  const dateLabel = `${day}.${month}.${year}`;
+  const title = isEvening ? "ВЕЧЕРКА" : "ВОСКРЕСКА";
+  const gameTime = isEvening ? "19:00" : "09:30";
+
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS scheduled_channel_posts (
+      game_date TEXT NOT NULL,
+      post_type TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      telegram_message_id TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      published_at TEXT,
+      PRIMARY KEY (game_date, post_type)
+    )
+  `).run();
+
+  const claim = await env.DB.prepare(
+    "INSERT OR IGNORE INTO scheduled_channel_posts (game_date,post_type,status) VALUES (?,?,'pending')"
+  ).bind(gameDate, title).run();
+  if (!claim.meta?.changes) return;
+
+  const message =
+    `🔥 ${title} | ОТКРЫТАЯ ИГРА\n\n` +
+    `🎯 СТРАЙКБОЛ\n\n` +
+    `📅 ${dateLabel}\n` +
+    `🕒 Начало в ${gameTime}\n` +
+    `⏱ Продолжительность — 3 часа\n\n` +
+    `💰 Стоимость участия:\n` +
+    `• Со своим оборудованием — 800 ₽\n` +
+    `• С прокатом оборудования — 1 600 ₽\n\n` +
+    `На базе есть хронограф для проверки оборудования, питьевая вода, санузел и другие удобства для игроков.\n\n` +
+    `📝 Как записаться:\n` +
+    `Перейдите в бота @StrelokBookingBot, нажмите «Бронирование игр» → «Открытые игры», заполните необходимые данные и отправьте заявку.\n\n` +
+    `🔥 Ждём вас на игре клуба «Стрелок»!`;
+
+  const result = await tg(env, "sendMessage", {
+    chat_id: channelId,
+    text: message,
+    disable_web_page_preview: true
+  });
+
+  if (!result?.ok) {
+    await env.DB.prepare(
+      "UPDATE scheduled_channel_posts SET status='failed' WHERE game_date=? AND post_type=?"
+    ).bind(gameDate, title).run();
+    await notifyAdmins(env, `⚠️ Не удалось автоматически опубликовать пост ${title} на ${dateLabel}. Проверь права бота и настройки канала.`);
+    return;
+  }
+
+  await env.DB.prepare(
+    "UPDATE scheduled_channel_posts SET status='published',telegram_message_id=?,published_at=CURRENT_TIMESTAMP WHERE game_date=? AND post_type=?"
+  ).bind(String(result.result.message_id), gameDate, title).run();
+  await notifyAdmins(env, `✅ Пост ${title} на ${dateLabel} опубликован в канале @strelok_kzn.`);
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -1700,7 +1785,7 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
-    const due = await env.DB.prepare(
+    await publishScheduledOpenGamePost(env);\n\n    const due = await env.DB.prepare(
       `SELECT r.id,r.reminder_type,b.telegram_id
        FROM reminders r
        JOIN bookings b ON b.id=r.booking_id
