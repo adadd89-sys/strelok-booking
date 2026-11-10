@@ -463,6 +463,26 @@ async function handleMessage(env, msg) {
      ON CONFLICT(telegram_id) DO NOTHING`
   ).bind(String(userId)).run();
 
+  if (text === "/testchannel") {
+    if (!(await isAdmin(env, userId))) {
+      return send(env, chatId, "Недостаточно прав.");
+    }
+
+    const channelId = env.POSTS_CHANNEL_ID || "@strelok_kzn";
+    const result = await tg(env, "sendMessage", {
+      chat_id: channelId,
+      text: "🧪 ТЕСТ АВТОПУБЛИКАЦИИ\n\nЭто проверочное сообщение от бота клуба «Стрелок». Настоящая игра не создаётся.",
+      disable_web_page_preview: true
+    });
+
+    if (!result?.ok) {
+      console.error("Channel test publish failed:", result);
+      return send(env, chatId, "❌ Не удалось отправить тестовый пост. Проверь права бота в канале и настройки POSTS_CHANNEL_ID.");
+    }
+
+    return send(env, chatId, "✅ Тестовый пост успешно отправлен в канал @strelok_kzn. Проверь его в канале и затем можешь удалить.");
+  }
+
   if (text === "/start") {
     await clearState(env, userId);
 
