@@ -10,7 +10,7 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Oswald:wght@500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Inter:wght@400;500;600;700;800;900&family=Oswald:wght@500;600;700&display=swap');
     :root {
       color-scheme: dark;
       --bg: #111315;
@@ -393,6 +393,18 @@
       .tile { padding: 15px 12px; }
       .tile strong { font-size: 13px; }
     }
+    /* Армейская типографика главного экрана */
+    .header .logo,
+    #home .hero h1,
+    #home > .section-title,
+    #home .tile strong {
+      font-family: 'Black Ops One', 'Oswald', sans-serif;
+      font-weight: 400;
+      letter-spacing: .7px;
+    }
+    .header .logo { font-size: 23px; }
+    #home .hero h1 { letter-spacing: 1px; }
+
     @media (prefers-reduced-motion: reduce) {
       *,*::before,*::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
     }
@@ -679,6 +691,6 @@
     ].join("-");
   </script>
 
-  <script src="/miniapp.js?v=20261110-14"></script>
+  <script src="/miniapp.js?v=20261110-15"></script>
 </body>
 </html>
