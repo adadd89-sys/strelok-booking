@@ -754,41 +754,14 @@ async function uploadVenuePhotos(i){const s=i.dataset.venueUpload,files=Array.fr
 
   window.submitOrderRequest = submitOrderRequest;
 
-  // ПРОВЕРКА ПРАВ АДМИНИСТРАТОРА ПРИ ЗАПУСКЕ
-
+  // Кнопка администрирования показывается только после подтверждения прав.
 async function checkAdminAccess() {
   const adminButton = $("adminHome");
   if (!adminButton) return;
-
-  adminButton.classList.add("admin-card");
-  adminButton.style.removeProperty("display");
-
+  adminButton.classList.add("hidden");
   try {
     const data = await api("/api/admin");
-
-    if (data.isAdmin === true) {
-      adminButton.classList.remove("admin-card");
-    }
-  } catch (error) {
-    console.error("Проверка прав администратора:", error);
-  }
-}
-
-// ПРОВЕРКА ПРАВ АДМИНИСТРАТОРА ПРИ ЗАПУСКЕ
-
-async function checkAdminAccess() {
-  const adminButton = $("adminHome");
-  if (!adminButton) return;
-
-  adminButton.classList.add("admin-card");
-  adminButton.style.removeProperty("display");
-
-  try {
-    const data = await api("/api/admin");
-
-    if (data.isAdmin === true) {
-      adminButton.classList.remove("admin-card");
-    }
+    if (data.isAdmin === true) adminButton.classList.remove("hidden");
   } catch (error) {
     console.error("Проверка прав администратора:", error);
   }
