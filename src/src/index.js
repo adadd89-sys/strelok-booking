@@ -1867,6 +1867,127 @@ if (!phone) {
 
 
 
+async function ensureScheduledGame(env, { channelId, messageId, gameDate, title, gameTime, message }) {
+  if (!messageId) return null;
+
+  const existing = await env.DB.prepare(
+    "SELECT id FROM games WHERE channel_message_id=? LIMIT 1"
+  ).bind(String(messageId)).first();
+  if (existing) return Number(existing.id);
+
+  const dateLabel = gameDate.split("-").reverse().join(".");
+  const priceMatch = message.match(/(\\d[\\d ]*)\\s*₽/i);
+  const firstLine = message.split(/\\r?\\n/).find(line => line.trim()) || title;
+  const price = priceMatch ? `${priceMatch[1].trim()} ₽` : "Уточняется";
+
+  const inserted = await env.DB.prepare(`
+    INSERT INTO games
+      (title,description,game_date,game_time,price,status,channel_message_id)
+    SELECT ?,?,?,?,?, 'pending', ?
+    WHERE NOT EXISTS (
+      SELECT 1 FROM games WHERE channel_message_id=?
+    )
+  `).bind(
+    firstLine.slice(0, 150),
+    message.slice(0, 3500),
+    gameDate,
+    gameTime,
+    price,
+    String(messageId),
+    String(messageId)
+  ).run();
+
+  if (!inserted.meta?.changes) {
+    const duplicate = await env.DB.prepare(
+      "SELECT id FROM games WHERE channel_message_id=? LIMIT 1"
+    ).bind(String(messageId)).first();
+    return duplicate ? Number(duplicate.id) : null;
+  }
+
+  const game = await env.DB.prepare(
+    "SELECT id FROM games WHERE channel_message_id=? LIMIT 1"
+  ).bind(String(messageId)).first();
+  if (!game) throw new Error("Scheduled game insert did not return a game row");
+
+  const admins = await env.DB.prepare("SELECT telegram_id FROM admins").all();
+  const recipients = [...new Set([
+    String(env.OWNER_ID),
+    ...(admins.results || []).map(row => String(row.telegram_id))
+  ])].filter(id => id && id !== "undefined");
+
+  for (const id of recipients) {
+    await send(
+      env,
+      id,
+      `🔎 <b>Автоматическая открытая игра ожидает подтверждения</b>\\n\\n` +
+      `🎯 ${escapeHtml(title)}\\n📅 ${dateLabel}\\n🕒 ${gameTime}\\n` +
+      `💰 ${escapeHtml(price)}\\n\\nИгра создана из автоматической публикации и пока не видна игрокам.`,
+      {
+        inline_keyboard: [[
+          { text: "Подтвердить", callback_data: `approve:${game.id}` },
+          { text: "Отклонить", callback_data: `reject:${game.id}` }
+        ]]
+      }
+    );
+  }
+
+  return Number(game.id);
+}
+
+async function reconcileScheduledGames(env) {
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS scheduled_channel_posts (
+      game_date TEXT NOT NULL,
+      post_type TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      telegram_message_id TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      published_at TEXT,
+      PRIMARY KEY (game_date, post_type)
+    )
+  `).run();
+
+  const rows = await env.DB.prepare(`
+    SELECT game_date,post_type,telegram_message_id
+    FROM scheduled_channel_posts
+    WHERE status='published'
+      AND telegram_message_id IS NOT NULL
+      AND published_at >= datetime('now','-30 days')
+    ORDER BY published_at DESC
+  `).all();
+
+  const channelId = env.POSTS_CHANNEL_ID || "@strelok_kzn";
+  for (const row of rows.results || []) {
+    const gameDate = String(row.game_date);
+    const title = String(row.post_type);
+    const gameTime = title === "ВЕЧЕРКА" ? "19:00" : "09:30";
+    const [year, month, day] = gameDate.split("-");
+    const dateLabel = `${day}.${month}.${year}`;
+    const message =
+      `🔥 ${title} | ОТКРЫТАЯ ИГРА\\n\\n` +
+      `🎯 СТРАЙКБОЛ\\n\\n` +
+      `📅 ${dateLabel}\\n` +
+      `🕒 Начало в ${gameTime}\\n` +
+      `⏱ Продолжительность — 3 часа\\n\\n` +
+      `💰 Стоимость участия:\\n` +
+      `• Со своим оборудованием — 800 ₽\\n` +
+      `• С прокатом оборудования — 1 600 ₽\\n\\n` +
+      `На базе есть хронограф для проверки оборудования, питьевая вода, санузел и другие удобства для игроков.\\n\\n` +
+      `📝 Как записаться:\\n` +
+      `Перейдите в бота @StrelokBookingBot, нажмите «Бронирование игр» → «Открытые игры», заполните необходимые данные и отправьте заявку.\\n\\n` +
+      `🔥 Ждём вас на игре клуба «Стрелок»!`;
+    await ensureScheduledGame(env, {
+      channelId,
+      messageId: row.telegram_message_id,
+      gameDate,
+      title,
+      gameTime,
+      message
+    });
+  }
+}
+
+
 async function publishScheduledOpenGamePost(env) {
   const channelId = env.POSTS_CHANNEL_ID || "@strelok_kzn";
   const parts = new Intl.DateTimeFormat("en-GB", {
@@ -1948,6 +2069,15 @@ async function publishScheduledOpenGamePost(env) {
   await env.DB.prepare(
     "UPDATE scheduled_channel_posts SET status='published',telegram_message_id=?,published_at=CURRENT_TIMESTAMP WHERE game_date=? AND post_type=?"
   ).bind(String(result.result.message_id), gameDate, title).run();
+
+  await ensureScheduledGame(env, {
+    channelId,
+    messageId: result.result.message_id,
+    gameDate,
+    title,
+    gameTime,
+    message
+  });
   await notifyAdmins(env, `✅ Пост ${title} на ${dateLabel} опубликован в канале @strelok_kzn.`);
 }
 
@@ -2034,6 +2164,9 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
+    // Reconcile already published scheduled posts on every cron run.
+    // This repairs posts published before the game-creation fix was deployed.
+    await reconcileScheduledGames(env);
     await publishScheduledOpenGamePost(env);
 
     const due = await env.DB.prepare(
