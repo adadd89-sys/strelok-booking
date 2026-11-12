@@ -1876,8 +1876,8 @@ async function ensureScheduledGame(env, { channelId, messageId, gameDate, title,
   if (existing) return Number(existing.id);
 
   const dateLabel = gameDate.split("-").reverse().join(".");
-  const priceMatch = message.match(/(\\d[\\d ]*)\\s*₽/i);
-  const firstLine = message.split(/\\r?\\n/).find(line => line.trim()) || title;
+  const priceMatch = message.match(/(\d[\d ]*)\s*₽/i);
+  const firstLine = message.split(/\r?\n/).find(line => line.trim()) || title;
   const price = priceMatch ? `${priceMatch[1].trim()} ₽` : "Уточняется";
 
   const inserted = await env.DB.prepare(`
@@ -1919,9 +1919,9 @@ async function ensureScheduledGame(env, { channelId, messageId, gameDate, title,
     await send(
       env,
       id,
-      `🔎 <b>Автоматическая открытая игра ожидает подтверждения</b>\\n\\n` +
-      `🎯 ${escapeHtml(title)}\\n📅 ${dateLabel}\\n🕒 ${gameTime}\\n` +
-      `💰 ${escapeHtml(price)}\\n\\nИгра создана из автоматической публикации и пока не видна игрокам.`,
+      `🔎 <b>Автоматическая открытая игра ожидает подтверждения</b>\n\n` +
+      `🎯 ${escapeHtml(title)}\n📅 ${dateLabel}\n🕒 ${gameTime}\n` +
+      `💰 ${escapeHtml(price)}\n\nИгра создана из автоматической публикации и пока не видна игрокам.`,
       {
         inline_keyboard: [[
           { text: "Подтвердить", callback_data: `approve:${game.id}` },
@@ -1964,17 +1964,17 @@ async function reconcileScheduledGames(env) {
     const [year, month, day] = gameDate.split("-");
     const dateLabel = `${day}.${month}.${year}`;
     const message =
-      `🔥 ${title} | ОТКРЫТАЯ ИГРА\\n\\n` +
-      `🎯 СТРАЙКБОЛ\\n\\n` +
-      `📅 ${dateLabel}\\n` +
-      `🕒 Начало в ${gameTime}\\n` +
-      `⏱ Продолжительность — 3 часа\\n\\n` +
-      `💰 Стоимость участия:\\n` +
-      `• Со своим оборудованием — 800 ₽\\n` +
-      `• С прокатом оборудования — 1 600 ₽\\n\\n` +
-      `На базе есть хронограф для проверки оборудования, питьевая вода, санузел и другие удобства для игроков.\\n\\n` +
-      `📝 Как записаться:\\n` +
-      `Перейдите в бота @StrelokBookingBot, нажмите «Бронирование игр» → «Открытые игры», заполните необходимые данные и отправьте заявку.\\n\\n` +
+      `🔥 ${title} | ОТКРЫТАЯ ИГРА\n\n` +
+      `🎯 СТРАЙКБОЛ\n\n` +
+      `📅 ${dateLabel}\n` +
+      `🕒 Начало в ${gameTime}\n` +
+      `⏱ Продолжительность — 3 часа\n\n` +
+      `💰 Стоимость участия:\n` +
+      `• Со своим оборудованием — 800 ₽\n` +
+      `• С прокатом оборудования — 1 600 ₽\n\n` +
+      `На базе есть хронограф для проверки оборудования, питьевая вода, санузел и другие удобства для игроков.\n\n` +
+      `📝 Как записаться:\n` +
+      `Перейдите в бота @StrelokBookingBot, нажмите «Бронирование игр» → «Открытые игры», заполните необходимые данные и отправьте заявку.\n\n` +
       `🔥 Ждём вас на игре клуба «Стрелок»!`;
     await ensureScheduledGame(env, {
       channelId,
